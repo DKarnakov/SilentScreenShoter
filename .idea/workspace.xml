@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="5ed8c532-8312-4146-8202-e8a3c23ca5f7" name="Changes" comment="Начало">
+    <list default="true" id="5ed8c532-8312-4146-8202-e8a3c23ca5f7" name="Changes" comment="25-03-2024">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
@@ -115,7 +115,15 @@
       <option name="project" value="LOCAL" />
       <updated>1711353908333</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="25-03-2024">
+      <option name="closed" value="true" />
+      <created>1711374072015</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1711374072015</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -131,6 +139,7 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Начало" />
-    <option name="LAST_COMMIT_MESSAGE" value="Начало" />
+    <MESSAGE value="25-03-2024" />
+    <option name="LAST_COMMIT_MESSAGE" value="25-03-2024" />
   </component>
 </project>

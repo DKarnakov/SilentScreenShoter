@@ -234,6 +234,7 @@ class Application(tk.Tk):
         line_button.grid(padx=padding[0], pady=padding[1], column=3, row=1)
 
         self.num_button = ttk.Button(self.panel, text=self.num, command=lambda: self._set_number())
+        self.num_button.bind('<MouseWheel>', lambda event: self._change_number(event))
         self.num_button.grid(padx=padding[0], pady=padding[1], column=4, row=1)
 
         self.color_panel = ttk.Label(self.panel, width=3, background=self.colors[self.color % 8])
@@ -422,6 +423,14 @@ class Application(tk.Tk):
         self.color += 1
         self.color_panel['background'] = self.colors[self.color % 8]
 
+    def _change_number(self, event):
+        if event.delta > 0:
+            self.num += 1
+        else:
+            if self.num > 1:
+                self.num -= 1
+        self.num_button['text'] = self.num
+
     def _done(self):
         self.canvas.delete('service')
         self.canvas.update()
@@ -434,8 +443,8 @@ class Application(tk.Tk):
         win32clipboard.EmptyClipboard()
         win32clipboard.SetClipboardData(win32clipboard.CF_DIB, data)
         win32clipboard.CloseClipboard()
-
         notify('Скриншот добавлен в буфер обмена')
+
         self.destroy()
 
 
