@@ -7,25 +7,16 @@ import win32clipboard
 from math import sqrt, atan2, pi, sin, cos
 from win11toast import notify
 from functools import partial
-
-
-def set_selection(button):
-    for w in button.master.winfo_children():
-        ttk.Button.state(w, ['!pressed'])
-    ttk.Button.state(button, ['pressed'])
+from pynput import mouse
 
 
 class Application(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
 
-        self.txt = ''
-        self.txt_rect = None
-        self.color_panel = None
-        self.screenshot_area = None
-        self.move_point = []
         self.attributes('-fullscreen', True)
-        self.title("Моя программа")
+        self.attributes("-topmost", True)
+        self.title("SuperScreenShoter")
 
         self.canvas = tk.Canvas(self, cursor="cross", highlightthickness=0)
         self.canvas.pack(side="top", fill="both", expand=True)
@@ -44,6 +35,10 @@ class Application(tk.Tk):
         self.x2 = self.y2 = None
 
         self.screenshot_area_tk = None
+        self.txt = ''
+        self.txt_rect = None
+        self.color_panel = None
+        self.screenshot_area = None
         self.viewport = None
         self.border = None
         self.colors = ['red', 'orange', 'yellow', 'lime', 'lightblue', 'blue', 'magenta', 'white', 'black']
@@ -51,7 +46,18 @@ class Application(tk.Tk):
         self.num = 1
         self.point = {}
         self.blur_stack = []
-        self.text_bg_stack = []
+        self.move_point = []
+
+        self.arrow_button = ttk.Button(self.panel, text='Стрелка', command=lambda: self._set_arrow())
+        self.pen_button = ttk.Button(self.panel, text='Карандаш', command=lambda: self._set_pen())
+        self.line_button = ttk.Button(self.panel, text='Линия', command=lambda: self._set_line())
+        self.rect_button = ttk.Button(self.panel, text='Рамка', command=lambda: self._set_rect())
+        self.text_button = ttk.Button(self.panel, text='Надпись', command=lambda: self._set_text())
+        self.blur_button = ttk.Button(self.panel, text='Размытие', command=lambda: self._set_blur())
+        self.num_button = ttk.Button(self.panel, text=self.num, command=lambda: self._set_number())
+        self.color_panel = ttk.Label(self.panel, width=3, background=self.colors[self.color % 9])
+        self.recognize_button = ttk.Button(self.panel, text='Распознать', command=lambda: self._recognize())
+        self.done_button = ttk.Button(self.panel, text="Ok", command=lambda: self._done())
 
         self._background()
 
@@ -80,6 +86,14 @@ class Application(tk.Tk):
     def _move_corner(self, position, x, y):
         self.canvas.moveto(self.point[position], x - 5, y - 5)
 
+    def undo(self):
+        last_item = self.canvas.find_withtag('editor')[-1]
+        if last_item != self.viewport:
+            for tag in self.canvas.gettags(last_item):
+                if tag.startswith('na_'):
+                    last_item = tag
+            self.canvas.delete(last_item)
+
     def create_editor(self, event):
         x1, y1, x2, y2 = event.x, event.y, event.x + 2, event.y + 2
 
@@ -106,10 +120,11 @@ class Application(tk.Tk):
         self.x1, self.x2, self.y1, self.y2 = x1, x2, y1, y2
 
         self.txt_rect = self.canvas.create_rectangle(-1, -1, -1, -1, tags='service', dash=5, width=2,
-                                                     outline='lightgrey')
+                                                     outline='darkgrey')
+
+        self.bind('<Control-z>', lambda e: self.undo())
 
     def set_viewport(self, event):
-
         x1, x2, y1, y2 = self.x1, event.x, self.y1, event.y
 
         anchor = 's' if y2 < y1 else 'n'
@@ -237,49 +252,43 @@ class Application(tk.Tk):
 
         padding = (3, 3)
 
-        self.arrow_button = ttk.Button(self.panel, text='Стрелка', command=lambda: self._set_arrow())
         self.arrow_button.grid(padx=padding[0], pady=padding[1], column=0, row=1)
 
-        self.pen_button = ttk.Button(self.panel, text='Карандаш', command=lambda: self._set_pen())
         self.pen_button.grid(padx=padding[0], pady=padding[1], column=1, row=1)
 
-        self.line_button = ttk.Button(self.panel, text='Линия', command=lambda: self._set_line())
         self.line_button.grid(padx=padding[0], pady=padding[1], column=2, row=1)
 
-        self.rect_button = ttk.Button(self.panel, text='Рамка', command=lambda: self._set_rect())
         self.rect_button.grid(padx=padding[0], pady=padding[1], column=3, row=1)
 
-        self.text_button = ttk.Button(self.panel, text='Надпись', command=lambda: self._set_text())
         self.text_button.grid(padx=padding[0], pady=padding[1], column=4, row=1)
 
-        self.blur_button = ttk.Button(self.panel, text='Размытие', command=lambda: self._set_blur())
         self.blur_button.grid(padx=padding[0], pady=padding[1], column=5, row=1)
 
-        self.num_button = ttk.Button(self.panel, text=self.num, command=lambda: self._set_number())
         self.num_button.bind('<MouseWheel>', lambda e: self._change_number(e))
         self.num_button.grid(padx=padding[0], pady=padding[1], column=6, row=1)
 
-        self.color_panel = ttk.Label(self.panel, width=3, background=self.colors[self.color % 9])
-        self.color_panel.bind('<MouseWheel>', lambda e: self._change_color(e))
+        self.color_panel.bind('<MouseWheel>', lambda e: self._change_color())
         self.color_panel.grid(padx=padding[0], pady=padding[1], column=7, row=1)
 
-        recognize_button = ttk.Button(self.panel, text='Распознать', command=lambda: self._recognize())
-        recognize_button.grid(padx=padding[0], pady=padding[1], column=8, row=1)
+        self.recognize_button.grid(padx=padding[0], pady=padding[1], column=8, row=1)
 
-        done_button = ttk.Button(self.panel, text="Ok", command=lambda: self._done())
-        done_button.grid(padx=padding[0], pady=padding[1], column=9, row=1)
+        self.done_button.grid(padx=padding[0], pady=padding[1], column=9, row=1)
 
         self._set_arrow()
 
-    def delete_item(self, event):
-        print(self.canvas.find_closest(event.x, event.y, start=self.viewport + 1))
+    def set_selection(self, button):
+        for w in button.master.winfo_children():
+            ttk.Button.state(w, ['!pressed'])
+        ttk.Button.state(button, ['pressed'])
+        if button != self.text_button:
+            self._text_stop()
 
     def _set_arrow(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda event: self._arrow_create(event))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._arrow_move(event))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
 
-        set_selection(self.arrow_button)
+        self.set_selection(self.arrow_button)
 
     def _arrow_create(self, event):
         self.arrow = self.canvas.create_line(event.x, event.y, event.x, event.y,
@@ -312,7 +321,7 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda event: self._pen_create(event))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._pen_draw(event))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
-        set_selection(self.pen_button)
+        self.set_selection(self.pen_button)
 
     def _pen_create(self, event):
         pen_size = 5
@@ -353,7 +362,7 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._line_move(event))
         self.canvas.tag_bind('editor', '<Shift-B1-Motion>', lambda event: self._line_fix_move(event))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
-        set_selection(self.line_button)
+        self.set_selection(self.line_button)
 
     def _line_create(self, event):
         self.line = self.canvas.create_line(event.x, event.y, event.x, event.y, tags='editor',
@@ -407,7 +416,7 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda event: self._rect_create(event))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._rect_move(event))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
-        set_selection(self.rect_button)
+        self.set_selection(self.rect_button)
 
     def _rect_create(self, event):
         self.rect = self.canvas.create_rectangle(event.x, event.y, event.x, event.y, tags='editor',
@@ -436,15 +445,16 @@ class Application(tk.Tk):
         self.canvas.coords(self.rect, self.rect_x, self.rect_y, x2, y2)
 
     def _set_text(self):
-        self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda event: self._text_create(event))
-        self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._text_move(event))
-        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda event: self._text_start(event))
-        set_selection(self.text_button)
+        self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._text_create(e))
+        self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._text_move(e))
+        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self._text_start())
+        self.set_selection(self.text_button)
 
     def _text_create(self, event):
-        self.txt_rect_x = event.x - 30
-        self.txt_rect_y = event.y - 50
-        self.canvas.coords(self.txt_rect, self.txt_rect_x, self.txt_rect_y, event.x, event.y)
+        self.txt_rect_x = event.x
+        self.txt_rect_y = event.y
+        self.canvas.coords(self.txt_rect, self.txt_rect_x, self.txt_rect_y, event.x + 200, event.y + 30)
+        self.unbind('<Escape>')
 
     def _text_move(self, event):
         x1, y1, *_ = self.canvas.coords(self.txt_rect)
@@ -469,12 +479,16 @@ class Application(tk.Tk):
         # print(event.char, event.keysym, event.keycode)
         if event.keysym == 'BackSpace':
             self.txt = self.txt[:-1]
+        elif event.keysym == 'Escape':
+            self._text_stop()
+            return
         else:
             self.txt = self.txt + event.char
         self.canvas.itemconfig(self._txt, text=self.txt)
         bounds = self.canvas.bbox(self._txt)
         # width = bounds[2] - bounds[0]
         # height = bounds[3] - bounds[1]
+        # print(bounds, self.canvas.coords(self.txt_rect))
         if bounds[2] > self.canvas.coords(self.txt_rect)[2]:
             self.txt = self.txt[:-1] + '\n' + self.txt[-1]
             self.canvas.itemconfig(self._txt, text=self.txt)
@@ -487,7 +501,7 @@ class Application(tk.Tk):
                 self.y2 = bounds[3]
                 self.move_viewport(self.x1, self.y1, self.x2, self.y2)
 
-    def _text_start(self, event):
+    def _text_start(self):
         self.bind('<Key>', self.key_handler)
         self.txt = ''
         text_color = self.colors[self.color % 9]
@@ -495,14 +509,16 @@ class Application(tk.Tk):
                                             anchor='nw', font='Helvetica 18 bold', tags='editor')
         self.canvas.tag_bind(self._txt, '<ButtonPress-3>', partial(self.canvas.delete, self._txt))
 
-    def _text_stop(self, event):
-        pass
+    def _text_stop(self):
+        self.canvas.coords(self.txt_rect, -1, -1, -1, -1)
+        self.unbind('<Key>')
+        self.bind('<Escape>', lambda e: self.destroy())
 
     def _set_blur(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda event: self._blur_create(event))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._blur_move(event))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
-        set_selection(self.blur_button)
+        self.set_selection(self.blur_button)
 
     def _blur_create(self, event):
         x1, y1, x2, y2 = event.x, event.y, event.x, event.y
@@ -547,8 +563,8 @@ class Application(tk.Tk):
     def _set_number(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda event: self._number_create(event))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._number_move(event))
-        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda event: self._number_set(event))
-        set_selection(self.num_button)
+        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda event: self._number_set())
+        self.set_selection(self.num_button)
 
     def _number_create(self, event):
         tag = 'na_' + str(self.num)
@@ -590,11 +606,11 @@ class Application(tk.Tk):
         self.canvas.itemconfig(self.number_arrow, arrowshape=(length, length, 20))
         self.canvas.coords(self.number_arrow, x1, y1, x2, y2)
 
-    def _number_set(self, event):
+    def _number_set(self):
         self.num += 1
         self.num_button['text'] = self.num
 
-    def _change_color(self, event):
+    def _change_color(self):
         self.color += 1
         self.color_panel['background'] = self.colors[self.color % 9]
 
@@ -612,7 +628,7 @@ class Application(tk.Tk):
         self.clipboard_append(txt)
         self.update()
         self.destroy()
-        notify('Распознанный текст добавлен в буфер обмена', txt)
+        # notify('Распознанный текст добавлен в буфер обмена', txt)
         # button={'activationType': 'protocol', 'arguments': 'file:notepad.exe', 'content': 'Открыть блокнот'})
 
     def _done(self):
@@ -627,12 +643,34 @@ class Application(tk.Tk):
         win32clipboard.EmptyClipboard()
         win32clipboard.SetClipboardData(win32clipboard.CF_DIB, data)
         win32clipboard.CloseClipboard()
-        notify('Скриншот добавлен в буфер обмена')
+        # notify('Скриншот добавлен в буфер обмена')
 
         self.destroy()
 
 
+def launcher(x, y, button, pressed):
+    global STATUS, LM_BUTTON, MM_BUTTON, RM_BUTTON
+    if button == mouse.Button.left:
+        LM_BUTTON = pressed
+    if button == mouse.Button.middle:
+        MM_BUTTON = pressed
+    if button == mouse.Button.right:
+        RM_BUTTON = pressed
+    if all([LM_BUTTON, MM_BUTTON, RM_BUTTON]):
+        STATUS = not STATUS
+        if not STATUS:
+            notify('ScreenShoter отключен')
+        else:
+            notify('ScreenShoter включен')
+        return
+    if all([STATUS, LM_BUTTON, RM_BUTTON]):
+        app = Application()
+        app.mainloop()
+
+
 if __name__ == "__main__":
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-    app = Application()
-    app.mainloop()
+    STATUS = True
+    LM_BUTTON = MM_BUTTON = RM_BUTTON = False
+    with mouse.Listener(on_click=launcher) as listener:
+        listener.join()
