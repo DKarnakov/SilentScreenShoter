@@ -1,30 +1,43 @@
-import tkinter as tk
-
-
-class App(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.title("Текстовые элементы Canvas")
-        self.geometry("300x100")
-
-        self.var = tk.StringVar()
-        self.entry = tk.Entry(self, textvariable=self.var)
-        self.canvas = tk.Canvas(self, bg="white")
-
-        self.entry.pack(pady=5)
-        self.canvas.pack()
-        self.update()
-
-        w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
-        options = {"font": "courier", "fill": "blue",
-                   "activefill": "red"}
-        self.text_id = self.canvas.create_text((w / 2, h / 2), **options)
-        self.var.trace("w", self.write_text)
-
-    def write_text(self, *args):
-        self.canvas.itemconfig(self.text_id, text=self.var.get())
-
-
-if __name__ == "__main__":
-    app = App()
-    app.mainloop()
+import tkinter
+class HoldKeyDetect(object):
+    def __init__(self, widget, keys, handler=None):
+        """Detect holding `keys` in `widget`"""
+        self.widget = widget
+        self.handler = handler
+        self.binds = {}
+        for key in keys:
+            evid = '<KeyPress-%s>'%key
+            self.binds[evid] = widget.bind(evid,self.keypress)
+    def __del__(self):
+        try: self.unbind()
+        except tkinter.TclError: pass   #app has been destroyed
+    def unbind(self):
+        while True:
+            try: evid,fid = self.binds.popitem()
+            except KeyError: break
+            self.widget.unbind(evid, fid)
+    def keypress(self,e):
+        try:
+            if self.handler:
+                self.handler(e)
+        finally:
+            self.unbind()
+class App(object):
+    def __init__(self,root):
+        self.root = root
+        root.focus_force()
+        self.h = HoldKeyDetect(root,("Shift_L","Shift_R"),self.set_mode)
+        root.after(1000,   # larger than keypress repeat interval + code overhead
+                        self.continue_)
+        self.mode = False
+    def go(self):
+        self.root.mainloop()
+    def set_mode(self,_):
+        print("Shift mode set")
+        self.mode = True
+    def continue_(self):
+        del self.h
+        print ("Mode=", self.mode)
+        self.root.destroy()
+if __name__ == '__main__':
+    App(tkinter.Tk()).go()

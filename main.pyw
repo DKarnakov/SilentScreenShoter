@@ -1,11 +1,11 @@
 from PIL import ImageGrab, ImageTk, ImageEnhance, ImageFilter
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog
 import pytesseract
 from io import BytesIO
 import win32clipboard
 from math import sqrt, atan2, pi, sin, cos
-from win11toast import notify
+import ctypes
 from functools import partial
 from pynput import mouse
 
@@ -26,10 +26,7 @@ class Application(tk.Tk):
         self.canvas.bind('<ButtonRelease-1>', self.start_editing)
         self.bind('<Escape>', lambda event: self.destroy())
 
-        self.style = ttk.Style()
-        # self.style.theme_use('alt')
-        self.style.configure('RoundedFrame.TFrame')
-        self.panel = ttk.Frame(self.canvas, style='RoundedFrame.TFrame')
+        self.panel = ttk.Frame(self.canvas)
 
         self.x1 = self.y1 = None
         self.x2 = self.y2 = None
@@ -57,7 +54,14 @@ class Application(tk.Tk):
         self.num_button = ttk.Button(self.panel, text=self.num, command=lambda: self._set_number())
         self.color_panel = ttk.Label(self.panel, width=3, background=self.colors[self.color % 9])
         self.recognize_button = ttk.Button(self.panel, text='Распознать', command=lambda: self._recognize())
-        self.done_button = ttk.Button(self.panel, text="Ok", command=lambda: self._done())
+        done_txt = tk.StringVar(value='Ok')
+        self.done_button = ttk.Button(self.panel, textvariable=done_txt, command=lambda: self._done())
+        self.done_button.bind("<Shift-Button-1>", lambda event: self._save_to_file())
+
+        self.bind('<KeyPress-Shift_L>', lambda event: done_txt.set('Сохранить'))
+        self.bind('<KeyRelease-Shift_L>', lambda event: done_txt.set('Ok'))
+        self.bind('<KeyPress-Shift_R>', lambda event: done_txt.set('Сохранить'))
+        self.bind('<KeyRelease-Shift_R>', lambda event: done_txt.set('Ok'))
 
         self._background()
 
@@ -476,7 +480,6 @@ class Application(tk.Tk):
         self.canvas.coords(self.txt_rect, self.txt_rect_x, self.txt_rect_y, x2, y2)
 
     def key_handler(self, event):
-        # print(event.char, event.keysym, event.keycode)
         if event.keysym == 'BackSpace':
             self.txt = self.txt[:-1]
         elif event.keysym == 'Escape':
@@ -486,9 +489,6 @@ class Application(tk.Tk):
             self.txt = self.txt + event.char
         self.canvas.itemconfig(self._txt, text=self.txt)
         bounds = self.canvas.bbox(self._txt)
-        # width = bounds[2] - bounds[0]
-        # height = bounds[3] - bounds[1]
-        # print(bounds, self.canvas.coords(self.txt_rect))
         if bounds[2] > self.canvas.coords(self.txt_rect)[2]:
             self.txt = self.txt[:-1] + '\n' + self.txt[-1]
             self.canvas.itemconfig(self._txt, text=self.txt)
@@ -628,8 +628,6 @@ class Application(tk.Tk):
         self.clipboard_append(txt)
         self.update()
         self.destroy()
-        # notify('Распознанный текст добавлен в буфер обмена', txt)
-        # button={'activationType': 'protocol', 'arguments': 'file:notepad.exe', 'content': 'Открыть блокнот'})
 
     def _done(self):
         self.canvas.delete('service')
@@ -643,12 +641,21 @@ class Application(tk.Tk):
         win32clipboard.EmptyClipboard()
         win32clipboard.SetClipboardData(win32clipboard.CF_DIB, data)
         win32clipboard.CloseClipboard()
-        # notify('Скриншот добавлен в буфер обмена')
 
         self.destroy()
 
+    def _save_to_file(self):
+        self.canvas.delete('service')
+        self.canvas.update()
+        image = ImageGrab.grab(bbox=(self.x1, self.y1, self.x2, self.y2))
+        self.destroy()
 
-def launcher(x, y, button, pressed):
+        file_path = filedialog.asksaveasfilename(defaultextension='.png', filetypes=[('PNG', '*.png')])
+        if file_path:
+            image.save(file_path)
+
+
+def launcher(_, __, button, pressed):
     global STATUS, LM_BUTTON, MM_BUTTON, RM_BUTTON
     if button == mouse.Button.left:
         LM_BUTTON = pressed
@@ -656,14 +663,12 @@ def launcher(x, y, button, pressed):
         MM_BUTTON = pressed
     if button == mouse.Button.right:
         RM_BUTTON = pressed
+
     if all([LM_BUTTON, MM_BUTTON, RM_BUTTON]):
-        STATUS = not STATUS
-        if not STATUS:
-            notify('ScreenShoter отключен')
-        else:
-            notify('ScreenShoter включен')
-        return
-    if all([STATUS, LM_BUTTON, RM_BUTTON]):
+        action = f'{('Включить', 'Отключить')[STATUS]} SmallScreenShoter?'
+        header = 'SilentScreenShoter'
+        STATUS = not STATUS if ctypes.windll.user32.MessageBoxW(0, action, header, 0x00040004) == 6 else STATUS
+    elif all([STATUS, LM_BUTTON, RM_BUTTON]):
         app = Application()
         app.mainloop()
 
