@@ -165,26 +165,10 @@ class Application(tk.Tk):
     def _change_viewport(self, corner, event):
         x1, x2, y1, y2 = self.x1, self.x2, self.y1, self.y2
 
-        if corner == 'nw':
-            x1 = event.x
-            y1 = event.y
-        elif corner == 'n':
-            y1 = event.y
-        elif corner == 'ne':
-            x2 = event.x
-            y1 = event.y
-        elif corner == 'e':
-            x2 = event.x
-        elif corner == 'se':
-            x2 = event.x
-            y2 = event.y
-        elif corner == 's':
-            y2 = event.y
-        elif corner == 'sw':
-            x1 = event.x
-            y2 = event.y
-        elif corner == 'w':
-            x1 = event.x
+        x1 = event.x if 'w' in corner else x1
+        y1 = event.y if 'n' in corner else y1
+        x2 = event.x if 'e' in corner else x2
+        y2 = event.y if 's' in corner else y2
 
         self.x1, self.x2, self.y1, self.y2 = x1, x2, y1, y2
 
@@ -210,26 +194,10 @@ class Application(tk.Tk):
     def _fix_viewport(self, corner, event):
         x1, x2, y1, y2 = self.x1, self.x2, self.y1, self.y2
 
-        if corner == 'nw':
-            x1 = event.x
-            y1 = event.y
-        elif corner == 'n':
-            y1 = event.y
-        elif corner == 'ne':
-            x2 = event.x
-            y1 = event.y
-        elif corner == 'e':
-            x2 = event.x
-        elif corner == 'se':
-            x2 = event.x
-            y2 = event.y
-        elif corner == 's':
-            y2 = event.y
-        elif corner == 'sw':
-            x1 = event.x
-            y2 = event.y
-        elif corner == 'w':
-            x1 = event.x
+        x1 = event.x if 'w' in corner else x1
+        y1 = event.y if 'n' in corner else y1
+        x2 = event.x if 'e' in corner else x2
+        y2 = event.y if 's' in corner else y2
 
         x2, x1 = (x1, x2) if x2 < x1 else (x2, x1)
         y2, y1 = (y1, y2) if y2 < y1 else (y2, y1)
@@ -502,8 +470,8 @@ class Application(tk.Tk):
             self.canvas.itemconfig(self._txt, text=self.txt)
             bounds = self.canvas.bbox(self._txt)
         if bounds[3] > self.canvas.coords(self.txt_rect)[3]:
-            self.canvas.coords(self.txt_rect, self.txt_rect_x, self.txt_rect_y,
-                               self.canvas.coords(self.txt_rect)[2], bounds[3])
+            x1, y1, x2, _ = self.canvas.coords(self.txt_rect)
+            self.canvas.coords(self.txt_rect, x1, y1, x2, bounds[3])
 
             if bounds[3] > self.y2:
                 self.y2 = bounds[3]
@@ -513,7 +481,8 @@ class Application(tk.Tk):
         self.bind('<Key>', self._key_handler)
         self.txt = ''
         text_color = self.colors[self.color % 9]
-        self._txt = self.canvas.create_text(self.txt_rect_x, self.txt_rect_y, text=self.txt, fill=text_color,
+        x, y, *_ = self.canvas.coords(self.txt_rect)
+        self._txt = self.canvas.create_text(x, y, text=self.txt, fill=text_color,
                                             anchor='nw', font='Helvetica 18 bold', tags='editor')
         self.canvas.tag_bind(self._txt, '<ButtonPress-3>', partial(self.canvas.delete, self._txt))
 
