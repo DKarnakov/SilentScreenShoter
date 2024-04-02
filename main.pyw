@@ -21,9 +21,9 @@ class Application(tk.Tk):
         self.canvas = tk.Canvas(self, cursor="cross", highlightthickness=0)
         self.canvas.pack(side="top", fill="both", expand=True)
 
-        self.canvas.bind('<ButtonPress-1>', self.create_editor)
-        self.canvas.bind('<B1-Motion>', self.set_viewport)
-        self.canvas.bind('<ButtonRelease-1>', self.start_editing)
+        self.canvas.bind('<ButtonPress-1>', self._create_editor)
+        self.canvas.bind('<B1-Motion>', self._set_viewport)
+        self.canvas.bind('<ButtonRelease-1>', self._start_editing)
         self.bind('<Escape>', lambda event: self.destroy())
 
         self.panel = ttk.Frame(self.canvas)
@@ -83,14 +83,14 @@ class Application(tk.Tk):
                                                             outline='lightgrey', fill='black', tags='service')
         self.canvas.tag_bind(self.point[position], '<Enter>', lambda event: self._change_cursor(cursor))
         self.canvas.tag_bind(self.point[position], '<Leave>', lambda event: self._change_cursor('arrow'))
-        self.canvas.tag_bind(self.point[position], '<B1-Motion>', lambda event: self.change_viewport(position, event))
+        self.canvas.tag_bind(self.point[position], '<B1-Motion>', lambda event: self._change_viewport(position, event))
         self.canvas.tag_bind(self.point[position], '<ButtonRelease-1>',
-                             lambda event: self.fix_viewport(position, event))
+                             lambda event: self._fix_viewport(position, event))
 
     def _move_corner(self, position, x, y):
         self.canvas.moveto(self.point[position], x - 5, y - 5)
 
-    def undo(self):
+    def _undo(self):
         last_item = self.canvas.find_withtag('editor')[-1]
         if last_item != self.viewport:
             for tag in self.canvas.gettags(last_item):
@@ -98,7 +98,7 @@ class Application(tk.Tk):
                     last_item = tag
             self.canvas.delete(last_item)
 
-    def create_editor(self, event):
+    def _create_editor(self, event):
         x1, y1, x2, y2 = event.x, event.y, event.x + 2, event.y + 2
 
         screenshot_area = self.image.crop((x1, y1, x2, y2))
@@ -111,24 +111,27 @@ class Application(tk.Tk):
         self.border = self.canvas.create_rectangle(x1, y1, x2, y2,
                                                    width=2, dash=50, outline='lightgrey',
                                                    tags='service')
-
-        self._create_corner('nw', x1, y1, 'top_left_corner')
-        self._create_corner('n', x1, y1, 'top_side')
-        self._create_corner('ne', x1, y1, 'top_right_corner')
-        self._create_corner('e', x1, y1, 'right_side')
-        self._create_corner('se', x1, y1, 'bottom_right_corner')
-        self._create_corner('s', x1, y1, 'bottom_side')
-        self._create_corner('sw', x1, y1, 'bottom_left_corner')
-        self._create_corner('w', x1, y1, 'left_side')
+        cursors = {
+            'nw': 'top_left_corner',
+            'n': 'top_side',
+            'ne': 'top_right_corner',
+            'e': 'right_side',
+            'se': 'bottom_right_corner',
+            's': 'bottom_side',
+            'sw': 'bottom_left_corner',
+            'w': 'left_side'
+        }
+        for corner in cursors:
+            self._create_corner(corner, x1, y1, cursors[corner])
 
         self.x1, self.x2, self.y1, self.y2 = x1, x2, y1, y2
 
         self.txt_rect = self.canvas.create_rectangle(-1, -1, -1, -1, tags='service', dash=5, width=2,
                                                      outline='darkgrey')
 
-        self.bind('<Control-z>', lambda e: self.undo())
+        self.bind('<Control-z>', lambda e: self._undo())
 
-    def set_viewport(self, event):
+    def _set_viewport(self, event):
         x1, x2, y1, y2 = self.x1, event.x, self.y1, event.y
 
         anchor = 's' if y2 < y1 else 'n'
@@ -154,7 +157,7 @@ class Application(tk.Tk):
 
         self.x2, self.y2 = x2, y2
 
-    def change_viewport(self, corner, event):
+    def _change_viewport(self, corner, event):
         x1, x2, y1, y2 = self.x1, self.x2, self.y1, self.y2
 
         if corner == 'nw':
@@ -199,7 +202,7 @@ class Application(tk.Tk):
         self._move_corner('sw', x1, y2)
         self._move_corner('w', x1, (y2 + y1) // 2)
 
-    def fix_viewport(self, corner, event):
+    def _fix_viewport(self, corner, event):
         x1, x2, y1, y2 = self.x1, self.x2, self.y1, self.y2
 
         if corner == 'nw':
@@ -228,7 +231,7 @@ class Application(tk.Tk):
 
         self.x1, self.x2, self.y1, self.y2 = x1, x2, y1, y2
 
-    def move_viewport(self, x1, y1, x2, y2):
+    def _move_viewport(self, x1, y1, x2, y2):
         self.screenshot_area = self.image.crop((x1, y1, x2, y2))
         self.screenshot_area_tk = ImageTk.PhotoImage(self.screenshot_area)
         self.canvas.moveto(self.viewport, x1, y1)
@@ -245,8 +248,8 @@ class Application(tk.Tk):
         self._move_corner('sw', x1, y2)
         self._move_corner('w', x1, (y2 + y1) // 2)
 
-    def start_editing(self, event):
-        self.fix_viewport('se', event)
+    def _start_editing(self, event):
+        self._fix_viewport('se', event)
 
         self.canvas.unbind('<B1-Motion>')
         self.canvas.unbind('<ButtonPress-1>')
@@ -280,7 +283,7 @@ class Application(tk.Tk):
 
         self._set_arrow()
 
-    def set_selection(self, button):
+    def _set_selection(self, button):
         for w in button.master.winfo_children():
             ttk.Button.state(w, ['!pressed'])
         ttk.Button.state(button, ['pressed'])
@@ -292,7 +295,7 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._arrow_move(event))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
 
-        self.set_selection(self.arrow_button)
+        self._set_selection(self.arrow_button)
 
     def _arrow_create(self, event):
         self.arrow = self.canvas.create_line(event.x, event.y, event.x, event.y,
@@ -317,7 +320,7 @@ class Application(tk.Tk):
 
         if [self.x1, self.x2, self.y1, self.y2] != [xe1, xe2, ye1, ye2]:
             self.x1, self.x2, self.y1, self.y2 = xe1, xe2, ye1, ye2
-            self.move_viewport(xe1, ye1, xe2, ye2)
+            self._move_viewport(xe1, ye1, xe2, ye2)
 
         self.canvas.coords(self.arrow, x1, y1, x2, y2)
 
@@ -325,7 +328,7 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda event: self._pen_create(event))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._pen_draw(event))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
-        self.set_selection(self.pen_button)
+        self._set_selection(self.pen_button)
 
     def _pen_create(self, event):
         pen_size = 5
@@ -355,7 +358,7 @@ class Application(tk.Tk):
 
             if [self.x1, self.x2, self.y1, self.y2] != [xe1, xe2, ye1, ye2]:
                 self.x1, self.x2, self.y1, self.y2 = xe1, xe2, ye1, ye2
-                self.move_viewport(xe1, ye1, xe2, ye2)
+                self._move_viewport(xe1, ye1, xe2, ye2)
 
             coords.append(x2)
             coords.append(y2)
@@ -366,7 +369,7 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._line_move(event))
         self.canvas.tag_bind('editor', '<Shift-B1-Motion>', lambda event: self._line_fix_move(event))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
-        self.set_selection(self.line_button)
+        self._set_selection(self.line_button)
 
     def _line_create(self, event):
         self.line = self.canvas.create_line(event.x, event.y, event.x, event.y, tags='editor',
@@ -388,7 +391,7 @@ class Application(tk.Tk):
 
         if [self.x1, self.x2, self.y1, self.y2] != [xe1, xe2, ye1, ye2]:
             self.x1, self.x2, self.y1, self.y2 = xe1, xe2, ye1, ye2
-            self.move_viewport(xe1, ye1, xe2, ye2)
+            self._move_viewport(xe1, ye1, xe2, ye2)
 
         self.canvas.coords(self.line, x1, y1, x2, y2)
 
@@ -412,7 +415,7 @@ class Application(tk.Tk):
 
         if [self.x1, self.x2, self.y1, self.y2] != [xe1, xe2, ye1, ye2]:
             self.x1, self.x2, self.y1, self.y2 = xe1, xe2, ye1, ye2
-            self.move_viewport(xe1, ye1, xe2, ye2)
+            self._move_viewport(xe1, ye1, xe2, ye2)
 
         self.canvas.coords(self.line, x1, y1, x2, y2)
 
@@ -420,7 +423,7 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda event: self._rect_create(event))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._rect_move(event))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
-        self.set_selection(self.rect_button)
+        self._set_selection(self.rect_button)
 
     def _rect_create(self, event):
         self.rect = self.canvas.create_rectangle(event.x, event.y, event.x, event.y, tags='editor',
@@ -444,7 +447,7 @@ class Application(tk.Tk):
 
         if [self.x1, self.x2, self.y1, self.y2] != [xe1, xe2, ye1, ye2]:
             self.x1, self.x2, self.y1, self.y2 = xe1, xe2, ye1, ye2
-            self.move_viewport(xe1, ye1, xe2, ye2)
+            self._move_viewport(xe1, ye1, xe2, ye2)
 
         self.canvas.coords(self.rect, self.rect_x, self.rect_y, x2, y2)
 
@@ -452,7 +455,7 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._text_create(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._text_move(e))
         self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self._text_start())
-        self.set_selection(self.text_button)
+        self._set_selection(self.text_button)
 
     def _text_create(self, event):
         self.txt_rect_x = event.x
@@ -475,11 +478,11 @@ class Application(tk.Tk):
 
         if [self.x1, self.x2, self.y1, self.y2] != [xe1, xe2, ye1, ye2]:
             self.x1, self.x2, self.y1, self.y2 = xe1, xe2, ye1, ye2
-            self.move_viewport(xe1, ye1, xe2, ye2)
+            self._move_viewport(xe1, ye1, xe2, ye2)
 
         self.canvas.coords(self.txt_rect, self.txt_rect_x, self.txt_rect_y, x2, y2)
 
-    def key_handler(self, event):
+    def _key_handler(self, event):
         if event.keysym == 'BackSpace':
             self.txt = self.txt[:-1]
         elif event.keysym == 'Escape':
@@ -499,10 +502,10 @@ class Application(tk.Tk):
 
             if bounds[3] > self.y2:
                 self.y2 = bounds[3]
-                self.move_viewport(self.x1, self.y1, self.x2, self.y2)
+                self._move_viewport(self.x1, self.y1, self.x2, self.y2)
 
     def _text_start(self):
-        self.bind('<Key>', self.key_handler)
+        self.bind('<Key>', self._key_handler)
         self.txt = ''
         text_color = self.colors[self.color % 9]
         self._txt = self.canvas.create_text(self.txt_rect_x, self.txt_rect_y, text=self.txt, fill=text_color,
@@ -518,7 +521,7 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda event: self._blur_create(event))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._blur_move(event))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
-        self.set_selection(self.blur_button)
+        self._set_selection(self.blur_button)
 
     def _blur_create(self, event):
         x1, y1, x2, y2 = event.x, event.y, event.x, event.y
@@ -546,7 +549,7 @@ class Application(tk.Tk):
 
         if [self.x1, self.x2, self.y1, self.y2] != [xe1, xe2, ye1, ye2]:
             self.x1, self.x2, self.y1, self.y2 = xe1, xe2, ye1, ye2
-            self.move_viewport(xe1, ye1, xe2, ye2)
+            self._move_viewport(xe1, ye1, xe2, ye2)
 
         x1, x2, y1, y2 = self.blur_x, event.x, self.blur_y, event.y
 
@@ -564,7 +567,7 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda event: self._number_create(event))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._number_move(event))
         self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda event: self._number_set())
-        self.set_selection(self.num_button)
+        self._set_selection(self.num_button)
 
     def _number_create(self, event):
         tag = 'na_' + str(self.num)
@@ -600,7 +603,7 @@ class Application(tk.Tk):
 
         if [self.x1, self.x2, self.y1, self.y2] != [xe1, xe2, ye1, ye2]:
             self.x1, self.x2, self.y1, self.y2 = xe1, xe2, ye1, ye2
-            self.move_viewport(xe1, ye1, xe2, ye2)
+            self._move_viewport(xe1, ye1, xe2, ye2)
 
         length = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
         self.canvas.itemconfig(self.number_arrow, arrowshape=(length, length, 20))
