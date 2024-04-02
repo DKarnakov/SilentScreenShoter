@@ -8,6 +8,7 @@ from math import sqrt, atan2, pi, sin, cos
 import ctypes
 from functools import partial
 from pynput import mouse
+import argparse
 
 
 class Application(tk.Tk):
@@ -654,7 +655,9 @@ def launcher(_, __, button, pressed):
 
 if __name__ == '__main__':
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-    STATUS = True
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-s', '--silent', action='store_true', default=False)
+    STATUS = not parser.parse_args().silent
     LM_BUTTON = MM_BUTTON = RM_BUTTON = False
     with mouse.Listener(on_click=launcher) as listener:
         listener.join()
