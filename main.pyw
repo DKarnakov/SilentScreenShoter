@@ -15,11 +15,11 @@ class Application(tk.Tk):
         tk.Tk.__init__(self)
 
         self.attributes('-fullscreen', True)
-        self.attributes("-topmost", True)
-        self.title("SuperScreenShoter")
+        self.attributes('-topmost', True)
+        self.title('SuperScreenShoter')
 
-        self.canvas = tk.Canvas(self, cursor="cross", highlightthickness=0)
-        self.canvas.pack(side="top", fill="both", expand=True)
+        self.canvas = tk.Canvas(self, cursor='cross', highlightthickness=0)
+        self.canvas.pack(side='top', fill='both', expand=True)
 
         self.canvas.bind('<ButtonPress-1>', self._create_editor)
         self.canvas.bind('<B1-Motion>', self._set_viewport)
@@ -56,7 +56,7 @@ class Application(tk.Tk):
         self.recognize_button = ttk.Button(self.panel, text='Распознать', command=lambda: self._recognize())
         done_txt = tk.StringVar(value='Ok')
         self.done_button = ttk.Button(self.panel, textvariable=done_txt, command=lambda: self._done())
-        self.done_button.bind("<Shift-Button-1>", lambda event: self._save_to_file())
+        self.done_button.bind('<Shift-Button-1>', lambda event: self._save_to_file())
 
         self.bind('<KeyPress-Shift_L>', lambda event: done_txt.set('Сохранить'))
         self.bind('<KeyRelease-Shift_L>', lambda event: done_txt.set('Ok'))
@@ -64,6 +64,11 @@ class Application(tk.Tk):
         self.bind('<KeyRelease-Shift_R>', lambda event: done_txt.set('Ok'))
 
         self._background()
+
+    class _Padding:
+        def __init__(self, x, y):
+            self.x = x
+            self.y = y
 
     def _background(self):
         self.image = ImageGrab.grab()
@@ -104,7 +109,7 @@ class Application(tk.Tk):
         screenshot_area = self.image.crop((x1, y1, x2, y2))
         self.screenshot_area_tk = ImageTk.PhotoImage(screenshot_area)
 
-        self.viewport = self.canvas.create_image(x1, y1, anchor="nw", image=self.screenshot_area_tk, tags='editor')
+        self.viewport = self.canvas.create_image(x1, y1, anchor='nw', image=self.screenshot_area_tk, tags='editor')
 
         self._change_cursor('arrow')
 
@@ -255,31 +260,31 @@ class Application(tk.Tk):
         self.canvas.unbind('<ButtonPress-1>')
         self.canvas.unbind('<ButtonRelease-1>')
 
-        self.canvas.create_window(self.canvas.winfo_width() // 2, 0, window=self.panel, anchor="n", tags='service')
+        self.canvas.create_window(self.canvas.winfo_width() // 2, 10, window=self.panel, anchor='n', tags='service')
 
-        padding = (3, 3)
+        pad = self._Padding(3, 3)
 
-        self.arrow_button.grid(padx=padding[0], pady=padding[1], column=0, row=1)
+        self.arrow_button.grid(padx=pad.x, pady=pad.y, column=0, row=1)
 
-        self.pen_button.grid(padx=padding[0], pady=padding[1], column=1, row=1)
+        self.pen_button.grid(padx=pad.x, pady=pad.y, column=1, row=1)
 
-        self.line_button.grid(padx=padding[0], pady=padding[1], column=2, row=1)
+        self.line_button.grid(padx=pad.x, pady=pad.y, column=2, row=1)
 
-        self.rect_button.grid(padx=padding[0], pady=padding[1], column=3, row=1)
+        self.rect_button.grid(padx=pad.x, pady=pad.y, column=3, row=1)
 
-        self.text_button.grid(padx=padding[0], pady=padding[1], column=4, row=1)
+        self.text_button.grid(padx=pad.x, pady=pad.y, column=4, row=1)
 
-        self.blur_button.grid(padx=padding[0], pady=padding[1], column=5, row=1)
+        self.blur_button.grid(padx=pad.x, pady=pad.y, column=5, row=1)
 
         self.num_button.bind('<MouseWheel>', lambda e: self._change_number(e))
-        self.num_button.grid(padx=padding[0], pady=padding[1], column=6, row=1)
+        self.num_button.grid(padx=pad.x, pady=pad.y, column=6, row=1)
 
         self.color_panel.bind('<MouseWheel>', lambda e: self._change_color())
-        self.color_panel.grid(padx=padding[0], pady=padding[1], column=7, row=1)
+        self.color_panel.grid(padx=pad.x, pady=pad.y, column=7, row=1)
 
-        self.recognize_button.grid(padx=padding[0], pady=padding[1], column=8, row=1)
+        self.recognize_button.grid(padx=pad.x, pady=pad.y, column=8, row=1)
 
-        self.done_button.grid(padx=padding[0], pady=padding[1], column=9, row=1)
+        self.done_button.grid(padx=pad.x, pady=pad.y, column=9, row=1)
 
         self._set_arrow()
 
@@ -528,7 +533,7 @@ class Application(tk.Tk):
 
         blur_area = self.blur_image.crop((x1, y1, x2, y2))
         self.blur_stack.append(ImageTk.PhotoImage(blur_area))
-        self.blur = self.canvas.create_image(x1, y1, anchor="nw", image=self.blur_stack[-1], tags='editor')
+        self.blur = self.canvas.create_image(x1, y1, anchor='nw', image=self.blur_stack[-1], tags='editor')
         self.canvas.tag_raise(self.blur, self.viewport)
         self.blur_x = x1
         self.blur_y = y1
@@ -676,7 +681,7 @@ def launcher(_, __, button, pressed):
         app.mainloop()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
     STATUS = True
     LM_BUTTON = MM_BUTTON = RM_BUTTON = False
