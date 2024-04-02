@@ -590,6 +590,8 @@ class Application(tk.Tk):
     def _change_color(self):
         self.color += 1
         self.color_panel['background'] = self.colors[self.color % 9]
+        if self.canvas.coords(self.txt_rect) != [-1,-1,-1,-1]:
+            self.canvas.itemconfig(self._txt, fill=self.colors[self.color % 9])
 
     def _change_number(self, event):
         if event.delta > 0:
