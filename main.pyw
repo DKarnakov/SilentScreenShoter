@@ -333,7 +333,7 @@ class Application(tk.Tk):
     def _set_line(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._line_create(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._line_move(e))
-        self.canvas.tag_bind('editor', '<Shift-B1-Motion>', lambda e: self._line_fix_move(e))
+        self.canvas.tag_bind('editor', '<Shift-B1-Motion>', lambda e: self._line_angle_move(pi / 8, e))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
         self._set_selection(self.line_button)
 
@@ -361,11 +361,10 @@ class Application(tk.Tk):
 
         self.canvas.coords(self.line, x1, y1, x2, y2)
 
-    def _line_fix_move(self, event):
+    def _line_angle_move(self, angle, event):
         x1, y1, *_ = self.canvas.coords(self.line)
         x2, y2 = event.x, event.y
-        alpha = atan2(x2 - x1, y2 - y1)
-        alpha = (alpha + pi / 16) // (pi / 8) * (pi / 8)
+        alpha = (atan2(x2 - x1, y2 - y1) + angle / 2) // angle * angle
         length = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
         x2 = int(x1 + length * sin(alpha))
         y2 = int(y1 + length * cos(alpha))
