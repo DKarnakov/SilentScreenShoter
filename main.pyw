@@ -112,13 +112,13 @@ class Application(tk.Tk):
                                                    width=2, dash=50, outline='lightgrey',
                                                    tags='service')
         cursors = {'nw': 'top_left_corner',
-                   'n': 'top_side',
+                   'n':  'top_side',
                    'ne': 'top_right_corner',
-                   'e': 'right_side',
+                   'e':  'right_side',
                    'se': 'bottom_right_corner',
-                   's': 'bottom_side',
+                   's':  'bottom_side',
                    'sw': 'bottom_left_corner',
-                   'w': 'left_side'}
+                   'w':  'left_side'}
         for corner in cursors:
             self._create_corner(corner, x1, y1, cursors[corner])
 
