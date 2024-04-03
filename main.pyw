@@ -94,7 +94,7 @@ class Application(tk.Tk):
         last_item = self.canvas.find_withtag('editor')[-1]
         if last_item != self.viewport:
             for tag in self.canvas.gettags(last_item):
-                if tag.startswith('na_'):
+                if tag.startswith('_'):
                     last_item = tag
             self.canvas.delete(last_item)
 
@@ -534,7 +534,9 @@ class Application(tk.Tk):
         self._set_selection(self.num_button)
 
     def _number_create(self, event):
-        tag = 'na_' + str(self.num)
+        tag = '_' + str(self.num)
+        while self.canvas.find_withtag(tag) != ():
+            tag = tag + '_' + str(self.num)
         self.number_arrow = self.canvas.create_line(event.x, event.y, event.x, event.y,
                                                     fill=self.colors[self.color % 9],
                                                     arrow=tk.LAST,
