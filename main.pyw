@@ -25,7 +25,7 @@ class Application(tk.Tk):
         self.canvas.bind('<ButtonPress-1>', self._create_editor)
         self.canvas.bind('<B1-Motion>', self._set_viewport)
         self.canvas.bind('<ButtonRelease-1>', self._start_editing)
-        self.bind('<Escape>', lambda event: self.destroy())
+        self.bind('<Escape>', lambda e: self.destroy())
 
         self.panel = ttk.Frame(self.canvas)
 
@@ -57,19 +57,14 @@ class Application(tk.Tk):
         self.recognize_button = ttk.Button(self.panel, text='Распознать', command=lambda: self._recognize())
         done_txt = tk.StringVar(value='Ok')
         self.done_button = ttk.Button(self.panel, textvariable=done_txt, command=lambda: self._done())
-        self.done_button.bind('<Shift-Button-1>', lambda event: self._save_to_file())
+        self.done_button.bind('<Shift-Button-1>', lambda e: self._save_to_file())
 
-        self.bind('<KeyPress-Shift_L>', lambda event: done_txt.set('Сохранить'))
-        self.bind('<KeyRelease-Shift_L>', lambda event: done_txt.set('Ok'))
-        self.bind('<KeyPress-Shift_R>', lambda event: done_txt.set('Сохранить'))
-        self.bind('<KeyRelease-Shift_R>', lambda event: done_txt.set('Ok'))
+        self.bind('<KeyPress-Shift_L>', lambda e: done_txt.set('Сохранить'))
+        self.bind('<KeyRelease-Shift_L>', lambda e: done_txt.set('Ok'))
+        self.bind('<KeyPress-Shift_R>', lambda e: done_txt.set('Сохранить'))
+        self.bind('<KeyRelease-Shift_R>', lambda e: done_txt.set('Ok'))
 
         self._background()
-
-    class _Padding:
-        def __init__(self, x, y):
-            self.x = x
-            self.y = y
 
     def _background(self):
         self.image = ImageGrab.grab()
@@ -87,11 +82,10 @@ class Application(tk.Tk):
     def _create_corner(self, position, x, y, cursor):
         self.point[position] = self.canvas.create_rectangle(x - 4, y - 4, x + 4, y + 4, width=2,
                                                             outline='lightgrey', fill='black', tags='service')
-        self.canvas.tag_bind(self.point[position], '<Enter>', lambda event: self._change_cursor(cursor))
-        self.canvas.tag_bind(self.point[position], '<Leave>', lambda event: self._change_cursor('arrow'))
-        self.canvas.tag_bind(self.point[position], '<B1-Motion>', lambda event: self._change_viewport(position, event))
-        self.canvas.tag_bind(self.point[position], '<ButtonRelease-1>',
-                             lambda event: self._fix_viewport(position, event))
+        self.canvas.tag_bind(self.point[position], '<Enter>', lambda e: self._change_cursor(cursor))
+        self.canvas.tag_bind(self.point[position], '<Leave>', lambda e: self._change_cursor('arrow'))
+        self.canvas.tag_bind(self.point[position], '<B1-Motion>', lambda e: self._change_viewport(position, e))
+        self.canvas.tag_bind(self.point[position], '<ButtonRelease-1>', lambda e: self._fix_viewport(position, e))
 
     def _move_corner(self, position, x, y):
         self.canvas.moveto(self.point[position], x - 5, y - 5)
@@ -231,29 +225,27 @@ class Application(tk.Tk):
 
         self.canvas.create_window(self.canvas.winfo_width() // 2, 10, window=self.panel, anchor='n', tags='service')
 
-        pad = self._Padding(3, 3)
+        self.arrow_button.grid(padx=3, pady=3, column=0, row=1)
 
-        self.arrow_button.grid(padx=pad.x, pady=pad.y, column=0, row=1)
+        self.pen_button.grid(padx=3, pady=3, column=1, row=1)
 
-        self.pen_button.grid(padx=pad.x, pady=pad.y, column=1, row=1)
+        self.line_button.grid(padx=3, pady=3, column=2, row=1)
 
-        self.line_button.grid(padx=pad.x, pady=pad.y, column=2, row=1)
+        self.rect_button.grid(padx=3, pady=3, column=3, row=1)
 
-        self.rect_button.grid(padx=pad.x, pady=pad.y, column=3, row=1)
+        self.text_button.grid(padx=3, pady=3, column=4, row=1)
 
-        self.text_button.grid(padx=pad.x, pady=pad.y, column=4, row=1)
-
-        self.blur_button.grid(padx=pad.x, pady=pad.y, column=5, row=1)
+        self.blur_button.grid(padx=3, pady=3, column=5, row=1)
 
         self.num_button.bind('<MouseWheel>', lambda e: self._change_number(e))
-        self.num_button.grid(padx=pad.x, pady=pad.y, column=6, row=1)
+        self.num_button.grid(padx=3, pady=3, column=6, row=1)
 
         self.color_panel.bind('<MouseWheel>', lambda e: self._change_color())
-        self.color_panel.grid(padx=pad.x, pady=pad.y, column=7, row=1)
+        self.color_panel.grid(padx=3, pady=3, column=7, row=1)
 
-        self.recognize_button.grid(padx=pad.x, pady=pad.y, column=8, row=1)
+        self.recognize_button.grid(padx=3, pady=3, column=8, row=1)
 
-        self.done_button.grid(padx=pad.x, pady=pad.y, column=9, row=1)
+        self.done_button.grid(padx=3, pady=3, column=9, row=1)
 
         self._set_arrow()
 
@@ -265,8 +257,8 @@ class Application(tk.Tk):
             self._text_stop()
 
     def _set_arrow(self):
-        self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda event: self._arrow_create(event))
-        self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._arrow_move(event))
+        self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._arrow_create(e))
+        self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._arrow_move(e))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
 
         self._set_selection(self.arrow_button)
@@ -299,8 +291,8 @@ class Application(tk.Tk):
         self.canvas.coords(self.arrow, x1, y1, x2, y2)
 
     def _set_pen(self):
-        self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda event: self._pen_create(event))
-        self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._pen_draw(event))
+        self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._pen_create(e))
+        self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._pen_draw(e))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
         self._set_selection(self.pen_button)
 
@@ -339,9 +331,9 @@ class Application(tk.Tk):
             self.canvas.coords(self.pen, coords)
 
     def _set_line(self):
-        self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda event: self._line_create(event))
-        self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._line_move(event))
-        self.canvas.tag_bind('editor', '<Shift-B1-Motion>', lambda event: self._line_fix_move(event))
+        self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._line_create(e))
+        self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._line_move(e))
+        self.canvas.tag_bind('editor', '<Shift-B1-Motion>', lambda e: self._line_fix_move(e))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
         self._set_selection(self.line_button)
 
@@ -394,8 +386,8 @@ class Application(tk.Tk):
         self.canvas.coords(self.line, x1, y1, x2, y2)
 
     def _set_rect(self):
-        self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda event: self._rect_create(event))
-        self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._rect_move(event))
+        self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._rect_create(e))
+        self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._rect_move(e))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
         self._set_selection(self.rect_button)
 
@@ -493,8 +485,8 @@ class Application(tk.Tk):
         self.bind('<Escape>', lambda e: self.destroy())
 
     def _set_blur(self):
-        self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda event: self._blur_create(event))
-        self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._blur_move(event))
+        self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._blur_create(e))
+        self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._blur_move(e))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
         self._set_selection(self.blur_button)
 
@@ -539,9 +531,9 @@ class Application(tk.Tk):
         self.canvas.itemconfig(self.blur, anchor=anchor, image=self.blur_stack[-1], tags='editor')
 
     def _set_number(self):
-        self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda event: self._number_create(event))
-        self.canvas.tag_bind('editor', '<B1-Motion>', lambda event: self._number_move(event))
-        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda event: self._number_set())
+        self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._number_create(e))
+        self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._number_move(e))
+        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self._number_set())
         self._set_selection(self.num_button)
 
     def _number_create(self, event):
@@ -657,7 +649,8 @@ if __name__ == '__main__':
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', '--silent', action='store_true', default=False)
-    STATUS = not parser.parse_args().silent
+    silent_mode = parser.parse_args().silent
+    STATUS = not silent_mode
     LM_BUTTON = MM_BUTTON = RM_BUTTON = False
     with mouse.Listener(on_click=launcher) as listener:
         listener.join()
