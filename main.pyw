@@ -640,8 +640,10 @@ def launcher(_, __, button, pressed):
         header = 'SilentScreenShoter'
         STATUS = not STATUS if ctypes.windll.user32.MessageBoxW(0, action, header, 0x00040004) == 6 else STATUS
     elif all([STATUS, LM_BUTTON, RM_BUTTON]):
+        STATUS = False
         app = Application()
         app.mainloop()
+        STATUS = True
 
 
 if __name__ == '__main__':
