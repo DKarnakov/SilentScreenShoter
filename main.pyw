@@ -111,16 +111,14 @@ class Application(tk.Tk):
         self.border = self.canvas.create_rectangle(x1, y1, x2, y2,
                                                    width=2, dash=50, outline='lightgrey',
                                                    tags='service')
-        cursors = {
-            'nw': 'top_left_corner',
-            'n': 'top_side',
-            'ne': 'top_right_corner',
-            'e': 'right_side',
-            'se': 'bottom_right_corner',
-            's': 'bottom_side',
-            'sw': 'bottom_left_corner',
-            'w': 'left_side'
-        }
+        cursors = {'nw': 'top_left_corner',
+                   'n': 'top_side',
+                   'ne': 'top_right_corner',
+                   'e': 'right_side',
+                   'se': 'bottom_right_corner',
+                   's': 'bottom_side',
+                   'sw': 'bottom_left_corner',
+                   'w': 'left_side'}
         for corner in cursors:
             self._create_corner(corner, x1, y1, cursors[corner])
 
