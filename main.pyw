@@ -26,15 +26,12 @@ class Application(tk.Tk):
         self.canvas.bind('<ButtonRelease-1>', self._start_editing)
         self.bind('<Escape>', lambda e: self.destroy())
 
-        self.panel = ttk.Frame(self.canvas)
-
         self.x1 = self.y1 = None
         self.x2 = self.y2 = None
 
         self.screenshot_area_tk = None
         self.txt = ''
         self.txt_rect = None
-        self.color_panel = None
         self.screenshot_area = None
         self.viewport = None
         self.border = None
@@ -44,8 +41,8 @@ class Application(tk.Tk):
         self.num = 1
         self.point = {}
         self.blur_stack = []
-        self.move_point = []
 
+        self.panel = ttk.Frame(self.canvas)
         self.arrow_button = ttk.Button(self.panel, text='Стрелка', command=lambda: self._set_arrow())
         self.pen_button = ttk.Button(self.panel, text='Карандаш', command=lambda: self._set_pen())
         self.line_button = ttk.Button(self.panel, text='Линия', command=lambda: self._set_line())
