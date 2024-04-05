@@ -573,7 +573,6 @@ class Application(tk.Tk):
             self.color += 1
         else:
             self.color = self.color - 1 if self.color > 0 else len(self.palette) - 1
-        print(self.color)
         self.color_panel['background'] = self.palette[self.color % self.colors]
         if self.canvas.coords(self.txt_rect) != [-1, -1, -1, -1]:
             self.canvas.itemconfig(self._txt, fill=self.palette[self.color % self.colors])
