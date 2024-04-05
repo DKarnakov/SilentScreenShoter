@@ -156,12 +156,10 @@ class Application(tk.Tk):
         self.x2, self.y2 = x2, y2
 
     def _change_viewport(self, corner, event):
-        x1, x2, y1, y2 = self.x1, self.x2, self.y1, self.y2
-
-        x1 = event.x if 'w' in corner else x1
-        y1 = event.y if 'n' in corner else y1
-        x2 = event.x if 'e' in corner else x2
-        y2 = event.y if 's' in corner else y2
+        x1 = event.x if 'w' in corner else self.x1
+        y1 = event.y if 'n' in corner else self.y1
+        x2 = event.x if 'e' in corner else self.x2
+        y2 = event.y if 's' in corner else self.y2
 
         self.x1, self.x2, self.y1, self.y2 = x1, x2, y1, y2
 
@@ -185,12 +183,10 @@ class Application(tk.Tk):
         self._move_corner('w', x1, (y2 + y1) // 2)
 
     def _fix_viewport(self, corner, event):
-        x1, x2, y1, y2 = self.x1, self.x2, self.y1, self.y2
-
-        x1 = event.x if 'w' in corner else x1
-        y1 = event.y if 'n' in corner else y1
-        x2 = event.x if 'e' in corner else x2
-        y2 = event.y if 's' in corner else y2
+        x1 = event.x if 'w' in corner else self.x1
+        y1 = event.y if 'n' in corner else self.y1
+        x2 = event.x if 'e' in corner else self.x2
+        y2 = event.y if 's' in corner else self.y2
 
         x2, x1 = (x1, x2) if x2 < x1 else (x2, x1)
         y2, y1 = (y1, y2) if y2 < y1 else (y2, y1)
