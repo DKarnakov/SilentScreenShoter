@@ -627,6 +627,9 @@ class Application(tk.Tk):
 
 
 def launcher(_, __, button, pressed):
+    global APPLICATION_IS_RUNNING
+    if APPLICATION_IS_RUNNING:
+        return
     global STATUS, LM_BUTTON, MM_BUTTON, RM_BUTTON
     if button == mouse.Button.left:
         LM_BUTTON = pressed
@@ -640,10 +643,10 @@ def launcher(_, __, button, pressed):
         header = 'SilentScreenShoter'
         STATUS = not STATUS if ctypes.windll.user32.MessageBoxW(0, action, header, 0x00040004) == 6 else STATUS
     elif all([STATUS, LM_BUTTON, RM_BUTTON]):
-        STATUS = False
+        APPLICATION_IS_RUNNING = True
         app = Application()
         app.mainloop()
-        STATUS = True
+        APPLICATION_IS_RUNNING = False
 
 
 if __name__ == '__main__':
@@ -653,5 +656,6 @@ if __name__ == '__main__':
     silent_mode = parser.parse_args().silent
     STATUS = not silent_mode
     LM_BUTTON = MM_BUTTON = RM_BUTTON = False
+    APPLICATION_IS_RUNNING = False
     with mouse.Listener(on_click=launcher) as listener:
         listener.join()
