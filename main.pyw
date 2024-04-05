@@ -39,7 +39,8 @@ class Application(tk.Tk):
         self.screenshot_area = None
         self.viewport = None
         self.border = None
-        self.colors = ['red', 'orange', 'yellow', 'lime', 'lightblue', 'blue', 'magenta', 'white', 'black']
+        self.palette = ['red', 'orange', 'yellow', 'lime', 'lightblue', 'blue', 'magenta', 'white', 'black']
+        self.colors = len(self.palette)
         self.color = 0
         self.num = 1
         self.point = {}
@@ -53,7 +54,7 @@ class Application(tk.Tk):
         self.text_button = ttk.Button(self.panel, text='Надпись', command=lambda: self._set_text())
         self.blur_button = ttk.Button(self.panel, text='Размытие', command=lambda: self._set_blur())
         self.num_button = ttk.Button(self.panel, text=self.num, command=lambda: self._set_number())
-        self.color_panel = ttk.Label(self.panel, width=3, background=self.colors[self.color % 9])
+        self.color_panel = ttk.Label(self.panel, width=3, background=self.palette[self.color % self.colors])
         self.recognize_button = ttk.Button(self.panel, text='Распознать', command=lambda: self._recognize())
         done_txt = tk.StringVar(value='Ok')
         self.done_button = ttk.Button(self.panel, textvariable=done_txt, command=lambda: self._done())
@@ -221,25 +222,16 @@ class Application(tk.Tk):
         self.canvas.create_window(self.canvas.winfo_width() // 2, 10, window=self.panel, anchor='n', tags='service')
 
         self.arrow_button.grid(padx=3, pady=3, column=0, row=1)
-
         self.pen_button.grid(padx=3, pady=3, column=1, row=1)
-
         self.line_button.grid(padx=3, pady=3, column=2, row=1)
-
         self.rect_button.grid(padx=3, pady=3, column=3, row=1)
-
         self.text_button.grid(padx=3, pady=3, column=4, row=1)
-
         self.blur_button.grid(padx=3, pady=3, column=5, row=1)
-
         self.num_button.bind('<MouseWheel>', lambda e: self._change_number(e))
         self.num_button.grid(padx=3, pady=3, column=6, row=1)
-
-        self.color_panel.bind('<MouseWheel>', lambda e: self._change_color())
+        self.color_panel.bind('<MouseWheel>', lambda e: self._change_color(e))
         self.color_panel.grid(padx=3, pady=3, column=7, row=1)
-
         self.recognize_button.grid(padx=3, pady=3, column=8, row=1)
-
         self.done_button.grid(padx=3, pady=3, column=9, row=1)
 
         self._set_arrow()
@@ -260,7 +252,7 @@ class Application(tk.Tk):
 
     def _arrow_create(self, event):
         self.arrow = self.canvas.create_line(event.x, event.y, event.x, event.y,
-                                             fill=self.colors[self.color % 9],
+                                             fill=self.palette[self.color % self.colors],
                                              width=5, tags='editor',
                                              arrowshape=(17, 25, 7),
                                              arrow=tk.LAST)
@@ -296,7 +288,7 @@ class Application(tk.Tk):
         x1, y1 = event.x, event.y
         x2, y2 = event.x, event.y
         self.pen = self.canvas.create_line(x1, y1, x2, y2,
-                                           fill=self.colors[self.color % 9], width=pen_size,
+                                           fill=self.palette[self.color % self.colors], width=pen_size,
                                            tags='editor')
         self.canvas.tag_bind(self.pen, '<ButtonPress-3>', partial(self.canvas.delete, self.pen))
 
@@ -334,7 +326,7 @@ class Application(tk.Tk):
 
     def _line_create(self, event):
         self.line = self.canvas.create_line(event.x, event.y, event.x, event.y, tags='editor',
-                                            fill=self.colors[self.color % 9], width=5, capstyle='round')
+                                            fill=self.palette[self.color % self.colors], width=5, capstyle='round')
         self.canvas.tag_bind(self.line, '<ButtonPress-3>', partial(self.canvas.delete, self.line))
 
     def _line_move(self, event):
@@ -387,7 +379,7 @@ class Application(tk.Tk):
 
     def _rect_create(self, event):
         self.rect = self.canvas.create_rectangle(event.x, event.y, event.x, event.y, tags='editor',
-                                                 outline=self.colors[self.color % 9], width=5)
+                                                 outline=self.palette[self.color % self.colors], width=5)
         self.canvas.tag_bind(self.rect, '<ButtonPress-3>', partial(self.canvas.delete, self.rect))
         self.rect_x = event.x
         self.rect_y = event.y
@@ -467,7 +459,7 @@ class Application(tk.Tk):
     def _text_start(self):
         self.bind('<Key>', self._key_handler)
         self.txt = ''
-        text_color = self.colors[self.color % 9]
+        text_color = self.palette[self.color % self.colors]
         x, y, *_ = self.canvas.coords(self.txt_rect)
         self._txt = self.canvas.create_text(x, y, text=self.txt, fill=text_color,
                                             anchor='nw', font='Helvetica 18 bold', tags='editor')
@@ -535,15 +527,15 @@ class Application(tk.Tk):
         while self.canvas.find_withtag(tag) != ():
             tag = tag + '_' + str(self.num)
         self.number_arrow = self.canvas.create_line(event.x, event.y, event.x, event.y,
-                                                    fill=self.colors[self.color % 9],
+                                                    fill=self.palette[self.color % self.colors],
                                                     arrow=tk.LAST,
                                                     tags=[tag, 'editor'])
         r = 20
         self.number_circle = self.canvas.create_oval(event.x - r, event.y - r, event.x + r, event.y + r,
-                                                     fill=self.colors[self.color % 9],
-                                                     outline=self.colors[self.color % 9],
+                                                     fill=self.palette[self.color % self.colors],
+                                                     outline=self.palette[self.color % self.colors],
                                                      tags=[tag, 'editor'])
-        text_color = 'darkgrey' if self.colors[self.color % 9] in ['white', 'yellow'] else 'white'
+        text_color = 'darkgrey' if self.palette[self.color % self.colors] in ['white', 'yellow'] else 'white'
         self.number_txt = self.canvas.create_text(event.x, event.y, text=self.num, fill=text_color,
                                                   anchor='center', font='Helvetica 18 bold',
                                                   tags=[tag, 'editor'])
@@ -576,11 +568,15 @@ class Application(tk.Tk):
         self.num += 1
         self.num_button['text'] = self.num
 
-    def _change_color(self):
-        self.color += 1
-        self.color_panel['background'] = self.colors[self.color % 9]
+    def _change_color(self, event):
+        if event.delta > 0:
+            self.color += 1
+        else:
+            self.color = self.color - 1 if self.color > 0 else len(self.palette) - 1
+        print(self.color)
+        self.color_panel['background'] = self.palette[self.color % self.colors]
         if self.canvas.coords(self.txt_rect) != [-1, -1, -1, -1]:
-            self.canvas.itemconfig(self._txt, fill=self.colors[self.color % 9])
+            self.canvas.itemconfig(self._txt, fill=self.palette[self.color % self.colors])
 
     def _change_number(self, event):
         if event.delta > 0:
