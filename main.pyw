@@ -538,9 +538,9 @@ class Application(tk.Tk):
         self.number_txt = self.canvas.create_text(event.x, event.y, text=self.num, fill=text_color,
                                                   anchor='center', font='Helvetica 18 bold',
                                                   tags=[tag, 'editor'])
-        self.canvas.tag_bind(self.number_arrow, '<ButtonPress-3>', partial(self.canvas.delete, tag))
-        self.canvas.tag_bind(self.number_circle, '<ButtonPress-3>', partial(self.canvas.delete, tag))
-        self.canvas.tag_bind(self.number_txt, '<ButtonPress-3>', partial(self.canvas.delete, tag))
+        self.canvas.tag_bind(self.number_arrow, '<ButtonPress-3>', partial(self._number_delete, tag))
+        self.canvas.tag_bind(self.number_circle, '<ButtonPress-3>', partial(self._number_delete, tag))
+        self.canvas.tag_bind(self.number_txt, '<ButtonPress-3>', partial(self._number_delete, tag))
 
     def _number_move(self, event):
         x1, y1, *_ = self.canvas.coords(self.number_arrow)
@@ -567,14 +567,10 @@ class Application(tk.Tk):
         self.num += 1
         self.num_button['text'] = self.num
 
-    def _change_color(self, event):
-        if event.delta > 0:
-            self.color += 1
-        else:
-            self.color = self.color - 1 if self.color > 0 else len(self.palette) - 1
-        self.color_panel['background'] = self.palette[self.color % self.colors]
-        if self.canvas.coords(self.txt_rect) != [-1, -1, -1, -1]:
-            self.canvas.itemconfig(self._txt, fill=self.palette[self.color % self.colors])
+    def _number_delete(self, tag, _):
+        self.canvas.delete(tag)
+        self.num = int(tag.split('_')[-1])
+        self.num_button['text'] = self.num
 
     def _change_number(self, event):
         if event.delta > 0:
@@ -583,6 +579,15 @@ class Application(tk.Tk):
             if self.num > 1:
                 self.num -= 1
         self.num_button['text'] = self.num
+
+    def _change_color(self, event):
+        if event.delta > 0:
+            self.color += 1
+        else:
+            self.color = self.color - 1 if self.color > 0 else len(self.palette) - 1
+        self.color_panel['background'] = self.palette[self.color % self.colors]
+        if self.canvas.coords(self.txt_rect) != [-1, -1, -1, -1]:
+            self.canvas.itemconfig(self._txt, fill=self.palette[self.color % self.colors])
 
     def _recognize(self):
         txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6')
