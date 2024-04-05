@@ -215,8 +215,9 @@ class Application(tk.Tk):
         self._move_corner('w', x1, (y2 + y1) // 2)
 
     def _start_editing(self, event):
+        if [self.x1, self.x2, self.y1, self.y2] == [None, None, None, None]:
+            return
         self._fix_viewport('se', event)
-
         self.canvas.unbind('<B1-Motion>')
         self.canvas.unbind('<ButtonPress-1>')
         self.canvas.unbind('<ButtonRelease-1>')
@@ -628,10 +629,10 @@ class Application(tk.Tk):
 
 def launcher(_, __, button, pressed):
     global APPLICATION_IS_RUNNING
-    if APPLICATION_IS_RUNNING:
-        return
-
     global STATUS, LM_BUTTON, MM_BUTTON, RM_BUTTON
+    if APPLICATION_IS_RUNNING:
+        LM_BUTTON = MM_BUTTON = RM_BUTTON = False
+        return
 
     if button == mouse.Button.left:
         LM_BUTTON = pressed
