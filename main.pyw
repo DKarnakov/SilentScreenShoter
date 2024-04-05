@@ -17,7 +17,6 @@ class Application(tk.Tk):
 
         self.attributes('-fullscreen', True)
         self.attributes('-topmost', True)
-        self.title('SuperScreenShoter')
 
         self.canvas = tk.Canvas(self, cursor='cross', highlightthickness=0)
         self.canvas.pack(side='top', fill='both', expand=True)
@@ -633,7 +632,7 @@ def launcher(_, __, button, pressed):
         RM_BUTTON = pressed
 
     if all([LM_BUTTON, MM_BUTTON, RM_BUTTON]):
-        action = f'{('Включить', 'Отключить')[STATUS]} SmallScreenShoter?'
+        action = f'{('Включить', 'Отключить')[STATUS]} SilentScreenShoter?'
         header = 'SilentScreenShoter'
         STATUS = not STATUS if ctypes.windll.user32.MessageBoxW(0, action, header, 0x00040004) == 6 else STATUS
     elif all([STATUS, LM_BUTTON, RM_BUTTON]):
