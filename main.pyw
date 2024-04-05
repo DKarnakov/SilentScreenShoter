@@ -630,7 +630,9 @@ def launcher(_, __, button, pressed):
     global APPLICATION_IS_RUNNING
     if APPLICATION_IS_RUNNING:
         return
+
     global STATUS, LM_BUTTON, MM_BUTTON, RM_BUTTON
+
     if button == mouse.Button.left:
         LM_BUTTON = pressed
     if button == mouse.Button.middle:
