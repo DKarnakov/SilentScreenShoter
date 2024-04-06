@@ -9,6 +9,8 @@ import ctypes
 from functools import partial
 from pynput import mouse
 import argparse
+import os
+import time
 
 
 class Application(tk.Tk):
@@ -614,7 +616,12 @@ class Application(tk.Tk):
         image = ImageGrab.grab(bbox=(self.x1, self.y1, self.x2, self.y2))
         self.destroy()
 
-        file_path = filedialog.asksaveasfilename(defaultextension='.png', filetypes=[('PNG', '*.png')])
+        desktop_folder = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
+        file_name = 'Снимок экрана ' + time.strftime("%d-%m-%Y %H%M%S")
+        file_path = filedialog.asksaveasfilename(defaultextension='.png',
+                                                 filetypes=[('PNG', '*.png')],
+                                                 initialdir=desktop_folder,
+                                                 initialfile=file_name)
         if file_path:
             image.save(file_path)
 
