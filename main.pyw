@@ -63,9 +63,6 @@ class Application(tk.Tk):
         self.bind('<KeyPress-Shift_R>', lambda e: done_txt.set('Сохранить'))
         self.bind('<KeyRelease-Shift_R>', lambda e: done_txt.set('Ok'))
 
-        self._background()
-
-    def _background(self):
         self.image = ImageGrab.grab()
         self.blur_image = self.image.filter(ImageFilter.GaussianBlur(5))
 
