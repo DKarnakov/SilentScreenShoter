@@ -242,14 +242,14 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._arrow_create(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._arrow_move(e))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
-
+        self.canvas.tag_unbind('editor', '<Shift-B1-Motion>')
         self._set_selection(self.arrow_button)
 
     def _arrow_create(self, event):
         self.arrow = self.canvas.create_line(event.x, event.y, event.x, event.y,
                                              fill=self.palette[self.color % self.colors],
                                              width=5, tags='editor',
-                                             arrowshape=(17, 25, 7),
+                                             arrowshape=(17, 25, 7), capstyle='round',
                                              arrow=tk.LAST)
         self.canvas.tag_bind(self.arrow, '<ButtonPress-3>', partial(self.canvas.delete, self.arrow))
 
@@ -276,14 +276,12 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._pen_create(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._pen_draw(e))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
+        self.canvas.tag_unbind('editor', '<Shift-B1-Motion>')
         self._set_selection(self.pen_button)
 
     def _pen_create(self, event):
-        pen_size = 5
-        x1, y1 = event.x, event.y
-        x2, y2 = event.x, event.y
-        self.pen = self.canvas.create_line(x1, y1, x2, y2,
-                                           fill=self.palette[self.color % self.colors], width=pen_size,
+        self.pen = self.canvas.create_line(event.x, event.y, event.x, event.y, width=5,
+                                           fill=self.palette[self.color % self.colors],
                                            tags='editor')
         self.canvas.tag_bind(self.pen, '<ButtonPress-3>', partial(self.canvas.delete, self.pen))
 
@@ -370,6 +368,7 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._rect_create(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._rect_move(e))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
+        self.canvas.tag_unbind('editor', '<Shift-B1-Motion>')
         self._set_selection(self.rect_button)
 
     def _rect_create(self, event):
@@ -402,6 +401,7 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._text_create(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._text_move(e))
         self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self._text_start())
+        self.canvas.tag_unbind('editor', '<Shift-B1-Motion>')
         self._set_selection(self.text_button)
 
     def _text_create(self, event):
@@ -469,6 +469,7 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._blur_create(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._blur_move(e))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
+        self.canvas.tag_unbind('editor', '<Shift-B1-Motion>')
         self._set_selection(self.blur_button)
 
     def _blur_create(self, event):
@@ -515,6 +516,7 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._number_create(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._number_move(e))
         self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self._number_set())
+        self.canvas.tag_unbind('editor', '<Shift-B1-Motion>')
         self._set_selection(self.num_button)
 
     def _number_create(self, event):
@@ -634,6 +636,7 @@ def launcher(_, __, button, pressed):
         APPLICATION_IS_RUNNING = True
         app = Application()
         app.mainloop()
+        LM_BUTTON = MM_BUTTON = RM_BUTTON = False
         APPLICATION_IS_RUNNING = False
 
 
