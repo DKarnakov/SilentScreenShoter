@@ -125,6 +125,30 @@ class Application(tk.Tk):
 
         self.bind('<Control-KeyPress>', lambda e: self._undo(e))
 
+        self.editor_size = self.canvas.create_text(x1 - 5, y1 - 7,
+                                                   anchor='sw', text='0×0',
+                                                   font='Helvetica 10 bold',
+                                                   fill='lightgrey',
+                                                   tags=['service','viewport'])
+        self.editor_size_bg = self.canvas.create_rectangle(self.canvas.bbox(self.editor_size),
+                                                           fill='gray', outline='grey',
+                                                           tags=['service','viewport'])
+        self.canvas.itemconfig('viewport', state='hidden')
+        self.canvas.tag_lower(self.editor_size_bg, self.editor_size)
+
+        self.bind('<KeyPress-Control_L>', lambda e: self._show_editor_size())
+        self.bind('<KeyRelease-Control_L>', lambda e: self.canvas.itemconfig('viewport', state='hidden'))
+        self.bind('<KeyPress-Control_R>', lambda e: self._show_editor_size())
+        self.bind('<KeyRelease-Control_R>', lambda e: self.canvas.itemconfig('viewport', state='hidden'))
+
+    def _show_editor_size(self):
+        x1, y1, x2, y2 = self.canvas.bbox(self.viewport)
+        self.canvas.itemconfig('viewport', state='normal')
+        self.canvas.itemconfig(self.editor_size, text=f'{x2 - x1}×{y2 - y1}')
+        height = self.canvas.bbox(self.editor_size)[3] - self.canvas.bbox(self.editor_size)[1]
+        self.canvas.moveto(self.editor_size, x1 - 5, y1 - height - 7)
+        self.canvas.coords(self.editor_size_bg, self.canvas.bbox(self.editor_size))
+
     def _set_viewport(self, event):
         x1, x2, y1, y2 = self.x1, event.x, self.y1, event.y
 
