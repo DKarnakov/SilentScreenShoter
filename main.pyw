@@ -71,6 +71,17 @@ class Application(tk.Tk):
         self.background_tk = ImageTk.PhotoImage(background)
         self.canvas.create_image(0, 0, anchor='nw', image=self.background_tk)
 
+        for row in range(7):
+            for col in range(7):
+                self.canvas.create_rectangle(0, 0, 10, 10, tags=['service', 'zoom', f'z_{row}{col}'])
+        self.canvas.itemconfig('z_33', width=3)
+
+        self.canvas.itemconfig('zoom', state='hidden')
+        self.bind('<KeyPress-Alt_L>', lambda e: self._show_zoom())
+        self.bind('<KeyRelease-Alt_L>', lambda e: self.canvas.itemconfig('zoom', state='hidden'))
+        self.bind('<KeyPress-Alt_R>', lambda e: self._show_zoom())
+        self.bind('<KeyRelease-Alt_R>', lambda e: self.canvas.itemconfig('zoom', state='hidden'))
+
     def _change_cursor(self, cursor):
         self.canvas.config(cursor=cursor)
 
@@ -129,10 +140,10 @@ class Application(tk.Tk):
                                                    anchor='sw', text='0×0',
                                                    font='Helvetica 10 bold',
                                                    fill='lightgrey',
-                                                   tags=['service','viewport'])
+                                                   tags=['service', 'viewport'])
         self.editor_size_bg = self.canvas.create_rectangle(self.canvas.bbox(self.editor_size),
-                                                           fill='gray', outline='grey',
-                                                           tags=['service','viewport'])
+                                                           fill='grey', outline='grey',
+                                                           tags=['service', 'viewport'])
         self.canvas.itemconfig('viewport', state='hidden')
         self.canvas.tag_lower(self.editor_size_bg, self.editor_size)
 
@@ -148,6 +159,18 @@ class Application(tk.Tk):
         height = self.canvas.bbox(self.editor_size)[3] - self.canvas.bbox(self.editor_size)[1]
         self.canvas.moveto(self.editor_size, x1 - 5, y1 - height - 7)
         self.canvas.coords(self.editor_size_bg, self.canvas.bbox(self.editor_size))
+
+    def _show_zoom(self):
+        x = self.winfo_pointerx()
+        y = self.winfo_pointery()
+        for row in range(7):
+            for col in range(7):
+                r, g, b = self.image.getpixel((x-3+row, y-3+col))
+                self.canvas.itemconfig(f'z_{row}{col}', fill=f'#{r:02x}{g:02x}{b:02x}')
+                self.canvas.moveto(f'z_{row}{col}', x-35+row*10, y-30+col*10-50)
+        self.canvas.itemconfig('zoom', state='normal')
+        self.canvas.tag_raise('zoom')
+        self.canvas.tag_raise('z_33')
 
     def _set_viewport(self, event):
         x1, x2, y1, y2 = self.x1, event.x, self.y1, event.y
