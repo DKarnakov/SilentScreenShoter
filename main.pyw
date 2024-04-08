@@ -37,7 +37,7 @@ class Application(tk.Tk):
         self.screenshot_area = None
         self.viewport = None
         self.border = None
-        self.palette = ['red', 'orange', 'yellow', 'lime', 'lightblue', 'blue', 'magenta', 'white', 'black']
+        self.palette = ['red', 'orange', 'yellow', 'lime', 'cyan', 'blue', 'magenta', 'white', 'black']
         self.colors = len(self.palette)
         self.color = 0
         self.num = 1
@@ -85,13 +85,14 @@ class Application(tk.Tk):
     def _move_corner(self, position, x, y):
         self.canvas.moveto(self.point[position], x - 5, y - 5)
 
-    def _undo(self):
-        last_item = self.canvas.find_withtag('editor')[-1]
-        if last_item != self.viewport:
-            for tag in self.canvas.gettags(last_item):
-                if tag.startswith('_'):
-                    last_item = tag
-            self.canvas.delete(last_item)
+    def _undo(self, event):
+        if event.state == 12 and event.keycode == 90:  # Ctrl-z
+            last_item = self.canvas.find_withtag('editor')[-1]
+            if last_item != self.viewport:
+                for tag in self.canvas.gettags(last_item):
+                    if tag.startswith('_'):
+                        last_item = tag
+                self.canvas.delete(last_item)
 
     def _create_editor(self, event):
         x1, y1, x2, y2 = event.x, event.y, event.x + 2, event.y + 2
@@ -117,12 +118,20 @@ class Application(tk.Tk):
         for corner in cursors:
             self._create_corner(corner, x1, y1, cursors[corner])
 
+        # self.editor_size = self.canvas.create_text(x1 - 5, y1 - 7,
+        #                                            anchor='sw', text='0×0',
+        #                                            font='Helvetica 10 bold',
+        #                                            fill='lightgrey')
+        # self.editor_size_bg = self.canvas.create_rectangle(self.canvas.bbox(self.editor_size),
+        #                                                    fill='gray', outline='grey')
+        # self.canvas.tag_lower(self.editor_size_bg, self.editor_size)
+
         self.x1, self.x2, self.y1, self.y2 = x1, x2, y1, y2
 
         self.txt_rect = self.canvas.create_rectangle(-1, -1, -1, -1, tags='service', dash=5, width=2,
                                                      outline='darkgrey')
 
-        self.bind('<Control-z>', lambda e: self._undo())
+        self.bind('<Control-KeyPress>', lambda e: self._undo(e))
 
     def _set_viewport(self, event):
         x1, x2, y1, y2 = self.x1, event.x, self.y1, event.y
@@ -149,6 +158,11 @@ class Application(tk.Tk):
         self._move_corner('w', x1, (y2 + y1) // 2)
 
         self.x2, self.y2 = x2, y2
+
+        # self.canvas.itemconfig(self.editor_size, text=f'{x2-x1}×{y2-y1}')
+        # height = self.canvas.bbox(self.editor_size)[3] - self.canvas.bbox(self.editor_size)[1]
+        # self.canvas.moveto(self.editor_size, x1 - 5, y1 - height - 7)
+        # self.canvas.coords(self.editor_size_bg, self.canvas.bbox(self.editor_size))
 
     def _change_viewport(self, corner, event):
         x1 = event.x if 'w' in corner else self.x1
@@ -177,6 +191,11 @@ class Application(tk.Tk):
         self._move_corner('sw', x1, y2)
         self._move_corner('w', x1, (y2 + y1) // 2)
 
+        # self.canvas.itemconfig(self.editor_size, text=f'{x2 - x1}×{y2 - y1}')
+        # height = self.canvas.bbox(self.editor_size)[3] - self.canvas.bbox(self.editor_size)[1]
+        # self.canvas.moveto(self.editor_size, x1 - 5, y1 - height - 7)
+        # self.canvas.coords(self.editor_size_bg, self.canvas.bbox(self.editor_size))
+
     def _fix_viewport(self, corner, event):
         x1 = event.x if 'w' in corner else self.x1
         y1 = event.y if 'n' in corner else self.y1
@@ -204,6 +223,11 @@ class Application(tk.Tk):
         self._move_corner('s', (x2 + x1) // 2, y2)
         self._move_corner('sw', x1, y2)
         self._move_corner('w', x1, (y2 + y1) // 2)
+
+        # self.canvas.itemconfig(self.editor_size, text=f'{x2 - x1}×{y2 - y1}')
+        # height = self.canvas.bbox(self.editor_size)[3] - self.canvas.bbox(self.editor_size)[1]
+        # self.canvas.moveto(self.editor_size, x1 - 5, y1 - height - 7)
+        # self.canvas.coords(self.editor_size_bg, self.canvas.bbox(self.editor_size))
 
     def _start_editing(self, event):
         if [self.x1, self.x2, self.y1, self.y2] == [None, None, None, None]:
@@ -605,7 +629,7 @@ class Application(tk.Tk):
             desktop_folder = os.path.join(os.environ['USERPROFILE'], 'Desktop')
             file_name = f'Снимок экрана {time.strftime('%d-%m-%Y %H%M%S')}'
             if file := filedialog.asksaveasfilename(defaultextension='.png',
-                                                    filetypes=[('PNG', '*.png')],
+                                                    filetypes=[('Portable Network Graphics', '*.png')],
                                                     initialdir=desktop_folder,
                                                     initialfile=file_name):
                 image.save(file)
