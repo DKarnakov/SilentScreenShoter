@@ -118,14 +118,6 @@ class Application(tk.Tk):
         for corner in cursors:
             self._create_corner(corner, x1, y1, cursors[corner])
 
-        # self.editor_size = self.canvas.create_text(x1 - 5, y1 - 7,
-        #                                            anchor='sw', text='0×0',
-        #                                            font='Helvetica 10 bold',
-        #                                            fill='lightgrey')
-        # self.editor_size_bg = self.canvas.create_rectangle(self.canvas.bbox(self.editor_size),
-        #                                                    fill='gray', outline='grey')
-        # self.canvas.tag_lower(self.editor_size_bg, self.editor_size)
-
         self.x1, self.x2, self.y1, self.y2 = x1, x2, y1, y2
 
         self.txt_rect = self.canvas.create_rectangle(-1, -1, -1, -1, tags='service', dash=5, width=2,
