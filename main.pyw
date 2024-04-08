@@ -159,11 +159,6 @@ class Application(tk.Tk):
 
         self.x2, self.y2 = x2, y2
 
-        # self.canvas.itemconfig(self.editor_size, text=f'{x2-x1}×{y2-y1}')
-        # height = self.canvas.bbox(self.editor_size)[3] - self.canvas.bbox(self.editor_size)[1]
-        # self.canvas.moveto(self.editor_size, x1 - 5, y1 - height - 7)
-        # self.canvas.coords(self.editor_size_bg, self.canvas.bbox(self.editor_size))
-
     def _change_viewport(self, corner, event):
         x1 = event.x if 'w' in corner else self.x1
         y1 = event.y if 'n' in corner else self.y1
@@ -190,11 +185,6 @@ class Application(tk.Tk):
         self._move_corner('s', (x2 + x1) // 2, y2)
         self._move_corner('sw', x1, y2)
         self._move_corner('w', x1, (y2 + y1) // 2)
-
-        # self.canvas.itemconfig(self.editor_size, text=f'{x2 - x1}×{y2 - y1}')
-        # height = self.canvas.bbox(self.editor_size)[3] - self.canvas.bbox(self.editor_size)[1]
-        # self.canvas.moveto(self.editor_size, x1 - 5, y1 - height - 7)
-        # self.canvas.coords(self.editor_size_bg, self.canvas.bbox(self.editor_size))
 
     def _fix_viewport(self, corner, event):
         x1 = event.x if 'w' in corner else self.x1
@@ -223,11 +213,6 @@ class Application(tk.Tk):
         self._move_corner('s', (x2 + x1) // 2, y2)
         self._move_corner('sw', x1, y2)
         self._move_corner('w', x1, (y2 + y1) // 2)
-
-        # self.canvas.itemconfig(self.editor_size, text=f'{x2 - x1}×{y2 - y1}')
-        # height = self.canvas.bbox(self.editor_size)[3] - self.canvas.bbox(self.editor_size)[1]
-        # self.canvas.moveto(self.editor_size, x1 - 5, y1 - height - 7)
-        # self.canvas.coords(self.editor_size_bg, self.canvas.bbox(self.editor_size))
 
     def _start_editing(self, event):
         if [self.x1, self.x2, self.y1, self.y2] == [None, None, None, None]:
