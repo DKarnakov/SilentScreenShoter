@@ -56,7 +56,6 @@ class Application(tk.Tk):
         self.recognize_button = ttk.Button(self.panel, text='Распознать', command=lambda: self._recognize())
         done_txt = tk.StringVar(value='Ok')
         self.done_button = ttk.Button(self.panel, textvariable=done_txt, command=lambda: self._done())
-        self.done_button.bind('<Shift-Button-1>', lambda e: self._save_to_file())
 
         self.bind('<KeyPress-Shift_L>', lambda e: done_txt.set('Сохранить'))
         self.bind('<KeyRelease-Shift_L>', lambda e: done_txt.set('Ok'))
@@ -108,13 +107,13 @@ class Application(tk.Tk):
                                                    width=2, dash=50, outline='lightgrey',
                                                    tags='service')
         cursors = {'nw': 'top_left_corner',
-                   'n':  'top_side',
+                   'n': 'top_side',
                    'ne': 'top_right_corner',
-                   'e':  'right_side',
+                   'e': 'right_side',
                    'se': 'bottom_right_corner',
-                   's':  'bottom_side',
+                   's': 'bottom_side',
                    'sw': 'bottom_left_corner',
-                   'w':  'left_side'}
+                   'w': 'left_side'}
         for corner in cursors:
             self._create_corner(corner, x1, y1, cursors[corner])
 
@@ -571,16 +570,12 @@ class Application(tk.Tk):
     def _change_number(self, event):
         if event.delta > 0:
             self.num += 1
-        else:
-            if self.num > 1:
-                self.num -= 1
+        elif self.num > 1:
+            self.num -= 1
         self.num_button['text'] = self.num
 
     def _change_color(self, event):
-        if event.delta > 0:
-            self.color += 1
-        else:
-            self.color = self.color - 1 if self.color > 0 else len(self.palette) - 1
+        self.color += 1 if event.delta > 0 else -1
         self.color_panel['background'] = self.palette[self.color % self.colors]
         if self.canvas.coords(self.txt_rect) != [-1, -1, -1, -1]:
             self.canvas.itemconfig(self._txt, fill=self.palette[self.color % self.colors])
@@ -595,32 +590,25 @@ class Application(tk.Tk):
     def _done(self):
         self.canvas.delete('service')
         self.canvas.update()
-        output = BytesIO()
         image = ImageGrab.grab(bbox=(self.x1, self.y1, self.x2, self.y2))
-        image.convert('RGB').save(output, 'BMP')
-        data = output.getvalue()[14:]
-        output.close()
-        win32clipboard.OpenClipboard()
-        win32clipboard.EmptyClipboard()
-        win32clipboard.SetClipboardData(win32clipboard.CF_DIB, data)
-        win32clipboard.CloseClipboard()
-
+        copy_to_clipboard = self.done_button['text'] == 'Ok'
         self.destroy()
-
-    def _save_to_file(self):
-        self.canvas.delete('service')
-        self.canvas.update()
-        image = ImageGrab.grab(bbox=(self.x1, self.y1, self.x2, self.y2))
-        self.destroy()
-
-        desktop_folder = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
-        file_name = 'Снимок экрана ' + time.strftime("%d-%m-%Y %H%M%S")
-        file_path = filedialog.asksaveasfilename(defaultextension='.png',
-                                                 filetypes=[('PNG', '*.png')],
-                                                 initialdir=desktop_folder,
-                                                 initialfile=file_name)
-        if file_path:
-            image.save(file_path)
+        if copy_to_clipboard:
+            with BytesIO() as output:
+                image.convert('RGB').save(output, 'BMP')
+                data = output.getvalue()[14:]
+            win32clipboard.OpenClipboard()
+            win32clipboard.EmptyClipboard()
+            win32clipboard.SetClipboardData(win32clipboard.CF_DIB, data)
+            win32clipboard.CloseClipboard()
+        else:
+            desktop_folder = os.path.join(os.environ['USERPROFILE'], 'Desktop')
+            file_name = f'Снимок экрана {time.strftime('%d-%m-%Y %H%M%S')}'
+            if file := filedialog.asksaveasfilename(defaultextension='.png',
+                                                    filetypes=[('PNG', '*.png')],
+                                                    initialdir=desktop_folder,
+                                                    initialfile=file_name):
+                image.save(file)
 
 
 def launcher(_, __, button, pressed):
