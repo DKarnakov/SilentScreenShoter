@@ -182,10 +182,8 @@ class Application(tk.Tk):
         xp = self.winfo_pointerx() - self.winfo_rootx()
         yp = self.winfo_pointery() - self.winfo_rooty()
         x = min(max(35, xp), self.winfo_width() - 35)
-        y = min(max(100, yp), self.winfo_height())
+        y = min(yp, self.winfo_height() - 110)
 
-        # up = 50+height+(y-y1) if y1-height-7-20 < y-10-20 < y1-7+70 and x1-5-35 < x < x1-5+width+35 else 50
-        up = -70 if y1-height < y < y1+100-7 and x1-5-35 < x < x1-5+width+35 else 50
         for row in range(7):
             for col in range(7):
                 try:
@@ -193,7 +191,7 @@ class Application(tk.Tk):
                 except IndexError:
                     r, g, b = self.image.getpixel((xp, yp))
                 self.canvas.itemconfig(f'z_{row}{col}', fill=f'#{r:02x}{g:02x}{b:02x}')
-                self.canvas.moveto(f'z_{row}{col}', x-35+col* 10, y-30+row*10-up)
+                self.canvas.moveto(f'z_{row}{col}', x-35+col* 10, y-30+row*10+70)
 
         self.cursor_color = self.canvas.itemcget('z_33', 'fill').upper()
         hex_red = int(self.cursor_color[1:3], base=16)
@@ -204,8 +202,8 @@ class Application(tk.Tk):
         self.canvas.itemconfig(self.color_pick_bg, fill=self.cursor_color, outline='black')
         height_pick = self.canvas.bbox(self.color_pick)[3] - self.canvas.bbox(self.color_pick)[1]
         width_pick = self.canvas.bbox(self.color_pick)[2] - self.canvas.bbox(self.color_pick)[0]
-        self.canvas.moveto(self.color_pick, x-width_pick//2+1, y-height_pick-32-up)
-        self.canvas.coords(self.color_pick_bg, (x-34, y-height_pick-32-up, x+36, y-32-up))
+        self.canvas.moveto(self.color_pick, x-width_pick//2+1, y-height_pick-32+70)
+        self.canvas.coords(self.color_pick_bg, (x-34, y-height_pick-32+70, x+36, y-32+70))
         self.canvas.tag_raise('precision')
         self.canvas.tag_raise('z_33')
 
