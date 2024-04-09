@@ -184,7 +184,8 @@ class Application(tk.Tk):
         x = min(max(35, xp), self.winfo_width() - 35)
         y = min(max(100, yp), self.winfo_height())
 
-        up = 50+height+(y-y1) if y1-height-7-20 < y-10-20 < y1-7+70 and x1-5-35 < x < x1-5+width+35 else 50
+        # up = 50+height+(y-y1) if y1-height-7-20 < y-10-20 < y1-7+70 and x1-5-35 < x < x1-5+width+35 else 50
+        up = -70 if y1-height < y < y1+100-7 and x1-5-35 < x < x1-5+width+35 else 50
         for row in range(7):
             for col in range(7):
                 try:
@@ -192,14 +193,13 @@ class Application(tk.Tk):
                 except IndexError:
                     r, g, b = self.image.getpixel((xp, yp))
                 self.canvas.itemconfig(f'z_{row}{col}', fill=f'#{r:02x}{g:02x}{b:02x}')
-                self.canvas.moveto(f'z_{row}{col}', x - 35 + col * 10, y - 30 + row * 10 - up)
+                self.canvas.moveto(f'z_{row}{col}', x-35+col* 10, y-30+row*10-up)
 
         self.cursor_color = self.canvas.itemcget('z_33', 'fill').upper()
         hex_red = int(self.cursor_color[1:3], base=16)
         hex_green = int(self.cursor_color[3:5], base=16)
         hex_blue = int(self.cursor_color[5:7], base=16)
         luminance = hex_red * 0.2126 + hex_green * 0.7152 + hex_blue * 0.0722
-
         self.canvas.itemconfig(self.color_pick, text=self.cursor_color, fill='white' if luminance < 140 else 'black')
         self.canvas.itemconfig(self.color_pick_bg, fill=self.cursor_color, outline='black')
         height_pick = self.canvas.bbox(self.color_pick)[3] - self.canvas.bbox(self.color_pick)[1]
