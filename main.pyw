@@ -11,7 +11,7 @@ from pynput import mouse
 import argparse
 import os
 import time
-from colorsys import rgb_to_hsv
+from colorsys import rgb_to_hsv, rgb_to_hls
 
 
 class Application(tk.Tk):
@@ -100,12 +100,16 @@ class Application(tk.Tk):
             self._done()
         # save color
         elif event.state == 131084 and event.keycode == 67:  # Ctrl-Alt-c
-            hex_color = self.canvas.itemcget('z_33', 'fill').upper()
+            hex_color = self.canvas.itemcget('z_33', 'fill')
             red = int(hex_color[1:3], base=16)
             green = int(hex_color[3:5], base=16)
             blue = int(hex_color[5:7], base=16)
             h, s, v = rgb_to_hsv(red/255, green/255, blue/255)
-            color_txt = f'HEX: {hex_color}\nRGB: {red} {green} {blue}\nHSV: {h*360:.0f}° {s:.0%} {v:.0%}'
+            hls = rgb_to_hls(red/255, green/255, blue/255)
+            color_txt = (f'HEX: {hex_color}\n'
+                         f'RGB: rgb({red}, {green}, {blue})\n'
+                         f'HSL: hsl({hls[0]*360:.0f}, {hls[2]:.0%}, {hls[1]:.0%})\n'
+                         f'HSV: {h*360:.0f}° {s:.0%} {v:.0%}')
             self.clipboard_clear()
             self.clipboard_append(color_txt)
             self.update()
@@ -197,7 +201,8 @@ class Application(tk.Tk):
         hex_green = int(self.cursor_color[3:5], base=16)
         hex_blue = int(self.cursor_color[5:7], base=16)
         luminance = hex_red * 0.2126 + hex_green * 0.7152 + hex_blue * 0.0722
-        self.canvas.itemconfig(self.color_pick, text=self.cursor_color, fill='white' if luminance < 140 else 'black')
+        self.canvas.itemconfig(self.color_pick, text=self.cursor_color,
+                               fill='lightgrey' if luminance < 140 else 'black')
         self.canvas.itemconfig(self.color_pick_bg, fill=self.cursor_color, outline='black')
         height_pick = self.canvas.bbox(self.color_pick)[3] - self.canvas.bbox(self.color_pick)[1]
         width_pick = self.canvas.bbox(self.color_pick)[2] - self.canvas.bbox(self.color_pick)[0]
