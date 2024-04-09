@@ -11,6 +11,7 @@ from pynput import mouse
 import argparse
 import os
 import time
+from colorsys import rgb_to_hsv
 
 
 class Application(tk.Tk):
@@ -71,17 +72,6 @@ class Application(tk.Tk):
         self.background_tk = ImageTk.PhotoImage(background)
         self.canvas.create_image(0, 0, anchor='nw', image=self.background_tk)
 
-        for row in range(7):
-            for col in range(7):
-                self.canvas.create_rectangle(0, 0, 10, 10, tags=['service', 'zoom', f'z_{row}{col}'])
-        self.canvas.itemconfig('z_33', width=3)
-
-        self.canvas.itemconfig('zoom', state='hidden')
-        self.bind('<KeyPress-Alt_L>', lambda e: self._show_zoom())
-        self.bind('<KeyRelease-Alt_L>', lambda e: self.canvas.itemconfig('zoom', state='hidden'))
-        self.bind('<KeyPress-Alt_R>', lambda e: self._show_zoom())
-        self.bind('<KeyRelease-Alt_R>', lambda e: self.canvas.itemconfig('zoom', state='hidden'))
-
     def _change_cursor(self, cursor):
         self.canvas.config(cursor=cursor)
 
@@ -96,7 +86,8 @@ class Application(tk.Tk):
     def _move_corner(self, position, x, y):
         self.canvas.moveto(self.point[position], x - 5, y - 5)
 
-    def _undo(self, event):
+    def _control(self, event):
+        # undo
         if event.state == 12 and event.keycode == 90:  # Ctrl-z
             last_item = self.canvas.find_withtag('editor')[-1]
             if last_item != self.viewport:
@@ -104,6 +95,20 @@ class Application(tk.Tk):
                     if tag.startswith('_'):
                         last_item = tag
                 self.canvas.delete(last_item)
+        # save
+        elif event.state in [12, 13] and event.keycode == 67:  # Ctrl-c || Ctrl-Shift-c
+            self._done()
+        # save color
+        elif event.state == 131084 and event.keycode == 67:  # Ctrl-Alt-c
+            hex_color = self.canvas.itemcget('z_33', 'fill').upper()
+            red = int(hex_color[1:3], base=16)
+            green = int(hex_color[3:5], base=16)
+            blue = int(hex_color[5:7], base=16)
+            h, s, v = rgb_to_hsv(red/255, green/255, blue/255)
+            color_txt = f'HEX: {hex_color}\nRGB: {red} {green} {blue}\nHSV: {h*360:.0f}° {s:.0%} {v:.0%}'
+            self.clipboard_clear()
+            self.clipboard_append(color_txt)
+            self.update()
 
     def _create_editor(self, event):
         x1, y1, x2, y2 = event.x, event.y, event.x + 2, event.y + 2
@@ -131,45 +136,77 @@ class Application(tk.Tk):
 
         self.x1, self.x2, self.y1, self.y2 = x1, x2, y1, y2
 
-        self.txt_rect = self.canvas.create_rectangle(-1, -1, -1, -1, tags='service', dash=5, width=2,
-                                                     outline='darkgrey')
+        self.txt_rect = self.canvas.create_rectangle(0, 0, 0, 0, tags='service', dash=5, width=2, outline='darkgrey')
+        self.canvas.itemconfig(self.txt_rect, state='hidden')
 
-        self.bind('<Control-KeyPress>', lambda e: self._undo(e))
+        self.viewport_size = self.canvas.create_text(x1 - 5, y1 - 7,
+                                                     anchor='sw', text='0×0',
+                                                     font='Helvetica 10 bold',
+                                                     fill='lightgrey',
+                                                     tags=['service', 'precision'])
+        self.viewport_size_bg = self.canvas.create_rectangle(self.canvas.bbox(self.viewport_size),
+                                                             fill='grey', outline='grey',
+                                                             tags=['service', 'precision'])
+        self.canvas.tag_lower(self.viewport_size_bg, self.viewport_size)
 
-        self.editor_size = self.canvas.create_text(x1 - 5, y1 - 7,
-                                                   anchor='sw', text='0×0',
-                                                   font='Helvetica 10 bold',
-                                                   fill='lightgrey',
-                                                   tags=['service', 'viewport'])
-        self.editor_size_bg = self.canvas.create_rectangle(self.canvas.bbox(self.editor_size),
-                                                           fill='grey', outline='grey',
-                                                           tags=['service', 'viewport'])
-        self.canvas.itemconfig('viewport', state='hidden')
-        self.canvas.tag_lower(self.editor_size_bg, self.editor_size)
-
-        self.bind('<KeyPress-Control_L>', lambda e: self._show_editor_size())
-        self.bind('<KeyRelease-Control_L>', lambda e: self.canvas.itemconfig('viewport', state='hidden'))
-        self.bind('<KeyPress-Control_R>', lambda e: self._show_editor_size())
-        self.bind('<KeyRelease-Control_R>', lambda e: self.canvas.itemconfig('viewport', state='hidden'))
-
-    def _show_editor_size(self):
-        x1, y1, x2, y2 = self.canvas.bbox(self.viewport)
-        self.canvas.itemconfig('viewport', state='normal')
-        self.canvas.itemconfig(self.editor_size, text=f'{x2 - x1}×{y2 - y1}')
-        height = self.canvas.bbox(self.editor_size)[3] - self.canvas.bbox(self.editor_size)[1]
-        self.canvas.moveto(self.editor_size, x1 - 5, y1 - height - 7)
-        self.canvas.coords(self.editor_size_bg, self.canvas.bbox(self.editor_size))
-
-    def _show_zoom(self):
-        x = self.winfo_pointerx()
-        y = self.winfo_pointery()
         for row in range(7):
             for col in range(7):
-                r, g, b = self.image.getpixel((x-3+row, y-3+col))
+                self.canvas.create_rectangle(0, 0, 10, 10, tags=['service', 'precision', f'z_{row}{col}'])
+        self.canvas.itemconfig('z_33', width=3)
+
+        self.color_pick = self.canvas.create_text(0, 0, anchor='sw', text='#000000',
+                                                  font='Helvetica 11 bold',
+                                                  tags=['service', 'precision'])
+        self.color_pick_bg = self.canvas.create_rectangle(self.canvas.bbox(self.viewport_size),
+                                                          tags=['service', 'precision'])
+        self.canvas.tag_lower(self.color_pick_bg, self.color_pick)
+
+        self.canvas.itemconfig('precision', state='hidden')
+
+        self.bind('<KeyPress-Alt_L>', lambda e: self._precision())
+        self.bind('<KeyRelease-Alt_L>', lambda e: self.canvas.itemconfig('precision', state='hidden'))
+        self.bind('<KeyPress-Alt_R>', lambda e: self._precision())
+        self.bind('<KeyRelease-Alt_R>', lambda e: self.canvas.itemconfig('precision', state='hidden'))
+
+        self.bind('<Control-KeyPress>', lambda e: self._control(e))
+
+    def _precision(self):
+        x1, y1, x2, y2 = self.canvas.bbox(self.viewport)
+        self.canvas.itemconfig('precision', state='normal')
+        self.canvas.itemconfig(self.viewport_size, text=f'{x2 - x1}×{y2 - y1}')
+        height = self.canvas.bbox(self.viewport_size)[3] - self.canvas.bbox(self.viewport_size)[1]
+        width = self.canvas.bbox(self.viewport_size)[2] - self.canvas.bbox(self.viewport_size)[0]
+        self.canvas.moveto(self.viewport_size, x1 - 5, y1 - height - 7)
+        self.canvas.coords(self.viewport_size_bg, self.canvas.bbox(self.viewport_size))
+
+        xp = self.winfo_pointerx() - self.winfo_rootx()
+        yp = self.winfo_pointery() - self.winfo_rooty()
+        x = min(max(35, xp), self.winfo_width() - 35)
+        y = min(max(100, yp), self.winfo_height())
+
+        up = 50+height+(y-y1) if y1-height-7-20 < y-10-20 < y1-7+70 and x1-5-35 < x < x1-5+width+35 else 50
+        for row in range(7):
+            for col in range(7):
+                try:
+                    r, g, b = self.image.getpixel((xp-3+col, yp-3+row))
+                except IndexError:
+                    r, g, b = self.image.getpixel((xp, yp))
                 self.canvas.itemconfig(f'z_{row}{col}', fill=f'#{r:02x}{g:02x}{b:02x}')
-                self.canvas.moveto(f'z_{row}{col}', x-35+row*10, y-30+col*10-50)
-        self.canvas.itemconfig('zoom', state='normal')
-        self.canvas.tag_raise('zoom')
+                self.canvas.moveto(f'z_{row}{col}', x - 35 + col * 10, y - 30 + row * 10 - up)
+
+        self.cursor_color = self.canvas.itemcget('z_33', 'fill').upper()
+        hex_red = int(self.cursor_color[1:3], base=16)
+        hex_green = int(self.cursor_color[3:5], base=16)
+        hex_blue = int(self.cursor_color[5:7], base=16)
+        luminance = hex_red * 0.2126 + hex_green * 0.7152 + hex_blue * 0.0722
+
+        self.canvas.itemconfig(self.color_pick, text=self.cursor_color, fill='white' if luminance < 140 else 'black')
+        self.canvas.itemconfig(self.color_pick_bg, fill=self.cursor_color, outline='black')
+        height_pick = self.canvas.bbox(self.color_pick)[3] - self.canvas.bbox(self.color_pick)[1]
+        width_pick = self.canvas.bbox(self.color_pick)[2] - self.canvas.bbox(self.color_pick)[0]
+        self.canvas.moveto(self.color_pick, x-width_pick//2+1, y-height_pick-32-up)
+        self.canvas.coords(self.color_pick_bg, (x-34, y-height_pick-32-up, x+36, y-32-up))
+        self.canvas.tag_raise('precision')
         self.canvas.tag_raise('z_33')
 
     def _set_viewport(self, event):
@@ -454,6 +491,7 @@ class Application(tk.Tk):
     def _text_create(self, event):
         self.txt_rect_x = event.x
         self.txt_rect_y = event.y
+        self.canvas.itemconfig(self.txt_rect, state='normal')
         self.canvas.coords(self.txt_rect, self.txt_rect_x, self.txt_rect_y, event.x + 200, event.y + 30)
         self.unbind('<Escape>')
 
@@ -508,7 +546,7 @@ class Application(tk.Tk):
         self.canvas.tag_bind(self._txt, '<ButtonPress-3>', partial(self.canvas.delete, self._txt))
 
     def _text_stop(self):
-        self.canvas.coords(self.txt_rect, -1, -1, -1, -1)
+        self.canvas.itemconfig(self.txt_rect, state='hidden')
         self.unbind('<Key>')
         self.bind('<Escape>', lambda e: self.destroy())
 
@@ -627,7 +665,7 @@ class Application(tk.Tk):
     def _change_color(self, event):
         self.color += 1 if event.delta > 0 else -1
         self.color_panel['background'] = self.palette[self.color % self.colors]
-        if self.canvas.coords(self.txt_rect) != [-1, -1, -1, -1]:
+        if self.canvas.itemcget(self.txt_rect, 'state') != 'hidden':
             self.canvas.itemconfig(self._txt, fill=self.palette[self.color % self.colors])
 
     def _recognize(self):
