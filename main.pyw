@@ -175,7 +175,6 @@ class Application(tk.Tk):
         self.canvas.itemconfig('precision', state='normal')
         self.canvas.itemconfig(self.viewport_size, text=f'{x2 - x1}×{y2 - y1}')
         height = self.canvas.bbox(self.viewport_size)[3] - self.canvas.bbox(self.viewport_size)[1]
-        width = self.canvas.bbox(self.viewport_size)[2] - self.canvas.bbox(self.viewport_size)[0]
         self.canvas.moveto(self.viewport_size, x1 - 5, y1 - height - 7)
         self.canvas.coords(self.viewport_size_bg, self.canvas.bbox(self.viewport_size))
 
@@ -191,7 +190,7 @@ class Application(tk.Tk):
                 except IndexError:
                     r, g, b = self.image.getpixel((xp, yp))
                 self.canvas.itemconfig(f'z_{row}{col}', fill=f'#{r:02x}{g:02x}{b:02x}')
-                self.canvas.moveto(f'z_{row}{col}', x-35+col* 10, y-30+row*10+70)
+                self.canvas.moveto(f'z_{row}{col}', x-35+col*10, y-30+row*10+70)
 
         self.cursor_color = self.canvas.itemcget('z_33', 'fill').upper()
         hex_red = int(self.cursor_color[1:3], base=16)
