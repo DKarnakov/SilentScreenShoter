@@ -685,9 +685,9 @@ class Application(tk.Tk):
 
     def _recognize(self):
         txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6')
+        bbox = (self.x1, self.y1, self.x2, self.y2)
         self.destroy()
-        coords = (self.x1, self.y1, self.x2, self.y2)
-        Notepad(txt, coords).mainloop()
+        Notepad(txt, bbox).mainloop()
 
     def _done(self):
         self.canvas.delete('service')
@@ -717,9 +717,10 @@ class Notepad(tk.Tk):
     def __init__(self, txt, coords):
         tk.Tk.__init__(self)
         self.title('SilentScreenShoter - Clipboard')
-        self.geometry(f'{coords[2]-coords[0]}x{coords[3]-coords[1]+25}+{coords[0]}+{coords[1]-25}')
+        self.after(1000, lambda: self.text.focus_force())
+        self.geometry(f'{coords[2]-coords[0]}x{coords[3]-coords[1]}+{coords[0]}+{coords[1]-25}')
         self.protocol('WM_DELETE_WINDOW', self._on_destroy)
-        self.text = tk.Text(wrap='word')
+        self.text = tk.Text(wrap='word', font='Consolas 11')
         self.text.pack(side='top', fill='both', expand=True)
 
         self.context_menu = tk.Menu(self, tearoff=0)
@@ -730,10 +731,11 @@ class Notepad(tk.Tk):
         self.context_menu.add_command(label='Вставить', accelerator='Ctrl+V')
 
         self.text.bind('<Button-3>', self._context_menu)
+        self.text.bind('<Escape>', lambda e: self._on_destroy())
 
         self.clipboard_clear()
         self.clipboard_append(txt)
-        self.text.insert('1.0', txt)
+        self.text.insert('1.0', txt[:-1])
         self.update()
 
     def _context_menu(self, event):
