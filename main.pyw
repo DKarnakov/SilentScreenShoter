@@ -689,6 +689,8 @@ class Application(tk.Tk):
         self.clipboard_append(txt)
         self.update()
         self.destroy()
+        notepad = Notepad()
+        notepad.mainloop()
 
     def _done(self):
         self.canvas.delete('service')
@@ -712,6 +714,17 @@ class Application(tk.Tk):
                                                     initialdir=desktop_folder,
                                                     initialfile=file_name):
                 image.save(file)
+
+
+class Notepad(tk.Tk):
+    def __init__(self):
+        tk.Tk.__init__(self)
+        self.title('SilentScreenShoter')
+        self.text = tk.Text(wrap='word')
+        self.text.pack(side='top', fill='both', expand=True)
+        txt = self.clipboard_get()
+        self.text.insert('1.0', txt)
+        self.update()
 
 
 def launcher(_, __, button, pressed):
