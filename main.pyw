@@ -20,6 +20,7 @@ class Application(tk.Tk):
 
         self.attributes('-fullscreen', True)
         self.attributes('-topmost', True)
+        self.after(1000, lambda: self.focus_force())
 
         self.canvas = tk.Canvas(self, cursor='cross', highlightthickness=0)
         self.canvas.pack(side='top', fill='both', expand=True)
@@ -98,6 +99,18 @@ class Application(tk.Tk):
         # save
         elif event.state in [12, 13] and event.keycode == 67:  # Ctrl-c || Ctrl-Shift-c
             self._done()
+        elif event.state == 12 and event.keycode == 83:  # Ctrl-s
+            self.canvas.delete('service')
+            self.canvas.update()
+            image = ImageGrab.grab(bbox=(self.x1, self.y1, self.x2, self.y2))
+            self.destroy()
+            desktop_folder = os.path.join(os.environ['USERPROFILE'], 'Desktop')
+            file_name = f'Снимок экрана {time.strftime('%d-%m-%Y %H%M%S')}'
+            if file := filedialog.asksaveasfilename(defaultextension='.png',
+                                                    filetypes=[('Portable Network Graphics', '*.png')],
+                                                    initialdir=desktop_folder,
+                                                    initialfile=file_name):
+                image.save(file)
         # save color
         elif event.state == 131084 and event.keycode == 67:  # Ctrl-Alt-c
             hex_color = self.canvas.itemcget('z_33', 'fill')
@@ -128,13 +141,13 @@ class Application(tk.Tk):
                                                    width=2, dash=50, outline='lightgrey',
                                                    tags='service')
         cursors = {'nw': 'top_left_corner',
-                   'n': 'top_side',
+                   'n':  'top_side',
                    'ne': 'top_right_corner',
-                   'e': 'right_side',
+                   'e':  'right_side',
                    'se': 'bottom_right_corner',
-                   's': 'bottom_side',
+                   's':  'bottom_side',
                    'sw': 'bottom_left_corner',
-                   'w': 'left_side'}
+                   'w':  'left_side'}
         for corner in cursors:
             self._create_corner(corner, x1, y1, cursors[corner])
 
