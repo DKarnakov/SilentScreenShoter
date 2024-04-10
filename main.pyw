@@ -685,12 +685,9 @@ class Application(tk.Tk):
 
     def _recognize(self):
         txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6')
-        self.clipboard_clear()
-        self.clipboard_append(txt)
-        self.update()
         self.destroy()
-        notepad = Notepad()
-        notepad.mainloop()
+        coords = (self.x1, self.y1, self.x2, self.y2)
+        Notepad(txt, coords).mainloop()
 
     def _done(self):
         self.canvas.delete('service')
@@ -717,14 +714,40 @@ class Application(tk.Tk):
 
 
 class Notepad(tk.Tk):
-    def __init__(self):
+    def __init__(self, txt, coords):
         tk.Tk.__init__(self)
-        self.title('SilentScreenShoter')
+        self.title('SilentScreenShoter - Clipboard')
+        self.geometry(f'{coords[2]-coords[0]}x{coords[3]-coords[1]+25}+{coords[0]}+{coords[1]-25}')
+        self.protocol('WM_DELETE_WINDOW', self._on_destroy)
         self.text = tk.Text(wrap='word')
         self.text.pack(side='top', fill='both', expand=True)
-        txt = self.clipboard_get()
+
+        self.context_menu = tk.Menu(self, tearoff=0)
+        self.context_menu.add_command(label='Выбрать всё', accelerator='Ctrl+A')
+        self.context_menu.add_separator()
+        self.context_menu.add_command(label='Вырезать', accelerator='Ctrl+X')
+        self.context_menu.add_command(label='Копировать', accelerator='Ctrl+C')
+        self.context_menu.add_command(label='Вставить', accelerator='Ctrl+V')
+
+        self.text.bind('<Button-3>', self._context_menu)
+
+        self.clipboard_clear()
+        self.clipboard_append(txt)
         self.text.insert('1.0', txt)
         self.update()
+
+    def _context_menu(self, event):
+        self.context_menu.entryconfigure('Выбрать всё', command=lambda: self.text.event_generate('<<SelectAll>>'))
+        self.context_menu.entryconfigure('Вырезать', command=lambda: self.text.event_generate('<<Cut>>'))
+        self.context_menu.entryconfigure('Копировать', command=lambda: self.text.event_generate('<<Copy>>'))
+        self.context_menu.entryconfigure('Вставить', command=lambda: self.text.event_generate('<<Paste>>'))
+        self.context_menu.tk.call('tk_popup', self.context_menu, event.x_root, event.y_root)
+
+    def _on_destroy(self):
+        self.clipboard_clear()
+        self.clipboard_append(self.text.get('1.0', 'end'))
+        self.update()
+        self.destroy()
 
 
 def launcher(_, __, button, pressed):
