@@ -126,6 +126,9 @@ class Application(tk.Tk):
             self.clipboard_clear()
             self.clipboard_append(color_txt)
             self.update()
+        # recognize
+        elif event.state == 12 and event.keycode == 82:  # Ctrl-r
+            self._recognize()
 
     def _create_editor(self, event):
         x1, y1, x2, y2 = event.x, event.y, event.x + 2, event.y + 2
@@ -714,11 +717,11 @@ class Application(tk.Tk):
 
 
 class Notepad(tk.Tk):
-    def __init__(self, txt, coords):
+    def __init__(self, txt, bbox):
         tk.Tk.__init__(self)
-        self.title('SilentScreenShoter - Clipboard')
-        self.after(1000, lambda: self.text.focus_force())
-        self.geometry(f'{coords[2]-coords[0]}x{coords[3]-coords[1]}+{coords[0]}+{coords[1]-25}')
+        self.title('SilentScreenShoter — Clipboard')
+        self.after(1, lambda: self.text.focus_force())
+        self.geometry(f'{bbox[2]-bbox[0]}x{bbox[3]-bbox[1]}+{bbox[0]}+{bbox[1] - 22}')
         self.protocol('WM_DELETE_WINDOW', self._on_destroy)
         self.text = tk.Text(wrap='word', font='Consolas 11')
         self.text.pack(side='top', fill='both', expand=True)
@@ -733,9 +736,7 @@ class Notepad(tk.Tk):
         self.text.bind('<Button-3>', self._context_menu)
         self.text.bind('<Escape>', lambda e: self._on_destroy())
 
-        self.clipboard_clear()
-        self.clipboard_append(txt)
-        self.text.insert('1.0', txt[:-1])
+        self.text.insert('1.0', txt[:-2])
         self.update()
 
     def _context_menu(self, event):
