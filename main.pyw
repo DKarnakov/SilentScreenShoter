@@ -1,4 +1,4 @@
-from PIL import ImageGrab, ImageTk, ImageEnhance, ImageFilter
+from PIL import ImageGrab, ImageTk, ImageEnhance, ImageFilter, Image
 import tkinter as tk
 from tkinter import ttk, filedialog
 import pytesseract
@@ -45,6 +45,8 @@ class Application(tk.Tk):
         self.num = 1
         self.point = {}
         self.blur_stack = []
+        self.txt_bounds = {'width': 0, 'height': 0}
+        self.txt_bg = []
 
         self.panel = ttk.Frame(self.canvas)
         self.arrow_button = ttk.Button(self.panel, text='Стрелка', command=lambda: self._set_arrow())
@@ -510,7 +512,9 @@ class Application(tk.Tk):
         self.txt_rect_x = event.x
         self.txt_rect_y = event.y
         self.canvas.itemconfig(self.txt_rect, state='normal')
-        self.canvas.coords(self.txt_rect, self.txt_rect_x, self.txt_rect_y, event.x + 200, event.y + 30)
+        self.canvas.coords(self.txt_rect, self.txt_rect_x, self.txt_rect_y, event.x + 20, event.y + 30)
+        self.txt_bounds = {'width': 0, 'height': 0}
+        self.canvas.delete('fix')
         self.unbind('<Escape>')
 
     def _text_move(self, event):
@@ -532,39 +536,108 @@ class Application(tk.Tk):
 
         self.canvas.coords(self.txt_rect, self.txt_rect_x, self.txt_rect_y, x2, y2)
 
+        self.txt_bounds['width'] = y2-self.txt_rect_y
+        self.txt_bounds['height'] = x2-self.txt_rect_x
+
+    def _create_txt_bg(self, bbox, color, alpha, txt_tag):
+        x1, y1, x2, y2 = bbox
+        alpha = int(alpha * 255)
+        fill = self.winfo_rgb(color) + (alpha,)
+        self.txt_bg_image = Image.new('RGBA', (int(x2-x1), int(y2-y1)), fill)
+        self.txt_bg.append(ImageTk.PhotoImage(self.txt_bg_image))
+        self.canvas.create_image(x1, y1, image=self.txt_bg[-1], anchor='nw',
+                                 tags=['editor', txt_tag, f'{txt_tag}_bg'])
+        self.canvas.tag_lower(f'{txt_tag}_bg', txt_tag)
+
     def _key_handler(self, event):
+        tag = ''
+        for item in self.canvas.gettags(self._txt):
+            if item.startswith('txt'):
+                tag = item
+
         if event.keysym == 'BackSpace':
             self.txt = self.txt[:-1]
+        elif event.keysym in ['Control_L', 'Control_R']:
+            if self.canvas.find_withtag(f'{tag}_bg') != ():
+                self.canvas.delete(f'{tag}_bg')
+            else:
+                self._create_txt_bg(self.canvas.coords(self.txt_rect), 'white', 0.8, tag)
         elif event.keysym == 'Escape':
             self._text_stop()
             return
         else:
             self.txt = self.txt + event.char
-        self.canvas.itemconfig(self._txt, text=self.txt)
-        bounds = self.canvas.bbox(self._txt)
-        if bounds[2] > self.canvas.coords(self.txt_rect)[2]:
-            self.txt = self.txt[:-1] + '\n' + self.txt[-1]
-            self.canvas.itemconfig(self._txt, text=self.txt)
-            bounds = self.canvas.bbox(self._txt)
-        if bounds[3] > self.canvas.coords(self.txt_rect)[3]:
-            x1, y1, x2, _ = self.canvas.coords(self.txt_rect)
-            self.canvas.coords(self.txt_rect, x1, y1, x2, bounds[3])
 
-            if bounds[3] > self.y2:
-                self.y2 = bounds[3]
-                self._move_viewport(self.x1, self.y1, self.x2, self.y2)
+        self.canvas.itemconfig(self._txt, text=self.txt)
+
+        bounds = self.canvas.bbox(self._txt)
+        if event.keysym == 'Return' and self.txt_bounds['width'] == 0:
+            self.txt_bounds['width'] = bounds[2] - bounds[0]
+            size = 10
+            x1, y1, x2, y2 = self.canvas.coords(self.txt_rect)
+            self.canvas.create_line(x1, y1 + size, x1, y1, width=2, tags='fix')
+            self.canvas.create_line(x1, y1, x1 + size, y1, width=2, tags='fix')
+            self.canvas.create_line(x2 - size, y1, x2, y1, width=2, tags='fix')
+            self.canvas.create_line(x2, y1, x2, y1 + size, width=2, tags='fix')
+
+        if bounds[2] > self.canvas.coords(self.txt_rect)[2]:
+            if self.txt_bounds['width'] != 0:
+                self.txt = self.txt[:-1] + '\n' + self.txt[-1]
+                self.canvas.itemconfig(self._txt, text=self.txt)
+                bounds = self.canvas.bbox(self._txt)
+            else:
+                x1, y1, _, y2 = self.canvas.coords(self.txt_rect)
+                self.canvas.coords(self.txt_rect, x1, y1, bounds[2], y2)
+                if self.canvas.find_withtag(f'{tag}_bg') != ():
+                    self.canvas.delete(f'{tag}_bg')
+                    self._create_txt_bg(self.canvas.coords(self.txt_rect), 'white', 0.8, tag)
+                if bounds[2] > self.x2:
+                    self.x2 = bounds[2]
+                    self._move_viewport(self.x1, self.y1, self.x2, self.y2)
+
+        if bounds[3] > self.canvas.coords(self.txt_rect)[3]:
+            if self.txt_bounds['height'] != 0:
+                self.font_size -= 1
+                self.canvas.itemconfig(self._txt, font=f'Helvetica {self.font_size} bold')
+            else:
+                x1, y1, x2, _ = self.canvas.coords(self.txt_rect)
+                self.canvas.coords(self.txt_rect, x1, y1, x2, bounds[3])
+                if self.canvas.find_withtag(f'{tag}_bg') != ():
+                    self.canvas.delete(f'{tag}_bg')
+                    self._create_txt_bg(self.canvas.coords(self.txt_rect), 'white', 0.8, tag)
+                if bounds[3] > self.y2:
+                    self.y2 = bounds[3]
+                    self._move_viewport(self.x1, self.y1, self.x2, self.y2)
 
     def _text_start(self):
         self.bind('<Key>', self._key_handler)
         self.txt = ''
         text_color = self.palette[self.color % self.colors]
         x, y, *_ = self.canvas.coords(self.txt_rect)
+        self.font_size = 18
+        tag = 0
+        while self.canvas.find_withtag(f'txt{tag}') != ():
+            tag += 1
         self._txt = self.canvas.create_text(x, y, text=self.txt, fill=text_color,
-                                            anchor='nw', font='Helvetica 18 bold', tags='editor')
-        self.canvas.tag_bind(self._txt, '<ButtonPress-3>', partial(self.canvas.delete, self._txt))
+                                            anchor='nw', font=f'Helvetica {self.font_size} bold',
+                                            tags=['editor', f'txt{tag}'])
+        self.canvas.tag_bind(f'txt{tag}', '<ButtonPress-3>', partial(self.canvas.delete, f'txt{tag}'))
+
+        if self.txt_bounds['width'] > 20 and self.txt_bounds['height'] > 20:
+            size = 10
+            x1, y1, x2, y2 = self.canvas.coords(self.txt_rect)
+            self.canvas.create_line(x1, y1 + size, x1, y1, width=2, tags='fix')
+            self.canvas.create_line(x1, y1, x1 + size, y1, width=2, tags='fix')
+            self.canvas.create_line(x2 - size, y1, x2, y1, width=2, tags='fix')
+            self.canvas.create_line(x2, y1, x2, y1 + size, width=2, tags='fix')
+            self.canvas.create_line(x2, y2 - size, x2, y2, width=2, tags='fix')
+            self.canvas.create_line(x2 - size, y2, x2, y2, width=2, tags='fix')
+            self.canvas.create_line(x1 + size, y2, x1, y2, width=2, tags='fix')
+            self.canvas.create_line(x1, y2, x1, y2 - size, width=2, tags='fix')
 
     def _text_stop(self):
         self.canvas.itemconfig(self.txt_rect, state='hidden')
+        self.canvas.delete('fix')
         self.unbind('<Key>')
         self.bind('<Escape>', lambda e: self.destroy())
 
@@ -723,7 +796,7 @@ class Notepad(tk.Tk):
         self.after(1, lambda: self.text.focus_force())
         self.geometry(f'{bbox[2]-bbox[0]}x{bbox[3]-bbox[1]}+{bbox[0]}+{bbox[1] - 22}')
         self.protocol('WM_DELETE_WINDOW', self._on_destroy)
-        self.text = tk.Text(wrap='word', font='Consolas 11')
+        self.text = tk.Text(wrap='word', font='Consolas 11', undo=True)
         self.text.pack(side='top', fill='both', expand=True)
 
         self.context_menu = tk.Menu(self, tearoff=0)
@@ -772,10 +845,10 @@ def launcher(_, __, button, pressed):
         header = 'SilentScreenShoter'
         STATUS = not STATUS if ctypes.windll.user32.MessageBoxW(0, action, header, 0x00040004) == 6 else STATUS
     elif all([STATUS, LM_BUTTON, RM_BUTTON]):
+        LM_BUTTON = MM_BUTTON = RM_BUTTON = False
         APPLICATION_IS_RUNNING = True
         app = Application()
         app.mainloop()
-        LM_BUTTON = MM_BUTTON = RM_BUTTON = False
         APPLICATION_IS_RUNNING = False
 
 
