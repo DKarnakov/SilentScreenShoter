@@ -1,4 +1,4 @@
-from PIL import ImageGrab, ImageTk, ImageEnhance, ImageFilter, Image
+from PIL import ImageGrab, ImageTk, ImageEnhance, ImageFilter, Image, ImageDraw
 import tkinter as tk
 from tkinter import ttk, filedialog
 import pytesseract
@@ -536,14 +536,16 @@ class Application(tk.Tk):
 
         self.canvas.coords(self.txt_rect, self.txt_rect_x, self.txt_rect_y, x2, y2)
 
-        self.txt_bounds['width'] = y2-self.txt_rect_y
-        self.txt_bounds['height'] = x2-self.txt_rect_x
+        self.txt_bounds['width'] = abs(y2-self.txt_rect_y)
+        self.txt_bounds['height'] = abs(x2-self.txt_rect_x)
 
     def _create_txt_bg(self, bbox, color, alpha, txt_tag):
         x1, y1, x2, y2 = bbox
         alpha = int(alpha * 255)
         fill = self.winfo_rgb(color) + (alpha,)
-        self.txt_bg_image = Image.new('RGBA', (int(x2-x1), int(y2-y1)), fill)
+        self.txt_bg_image = Image.new('RGBA', (int(x2-x1), int(y2-y1)))
+        draw = ImageDraw.Draw(self.txt_bg_image)
+        draw.rounded_rectangle(((0, 0), (int(x2-x1), int(y2-y1))), 7, fill=fill, outline=fill)
         self.txt_bg.append(ImageTk.PhotoImage(self.txt_bg_image))
         self.canvas.create_image(x1, y1, image=self.txt_bg[-1], anchor='nw',
                                  tags=['editor', txt_tag, f'{txt_tag}_bg'])
