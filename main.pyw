@@ -310,6 +310,16 @@ class Application(tk.Tk):
         self._move_corner('sw', x1, y2)
         self._move_corner('w', x1, (y2 + y1) // 2)
 
+    def _check_viewport_borders(self, x, y):
+        x1 = x if x < self.x1 else self.x1
+        x2 = x if x > self.x2 else self.x2
+        y1 = y if y < self.y1 else self.y1
+        y2 = y if y > self.y2 else self.y2
+
+        if [self.x1, self.y1, self.x2, self.y2] != [x1, y1, x2, y2]:
+            self.x1, self.y1, self.x2, self.y2 = x1, y1, x2, y2
+            self._move_viewport(x1, y1, x2, y2)
+
     def _start_editing(self, event):
         if [self.x1, self.x2, self.y1, self.y2] == [None, None, None, None]:
             return
@@ -360,20 +370,7 @@ class Application(tk.Tk):
     def _arrow_move(self, event):
         x1, y1, *_ = self.canvas.coords(self.arrow)
         x2, y2 = event.x, event.y
-        xe1, xe2, ye1, ye2 = self.x1, self.x2, self.y1, self.y2
-        if x2 < self.x1:
-            xe1 = x2
-        if x2 > self.x2:
-            xe2 = x2
-        if y2 < self.y1:
-            ye1 = y2
-        if y2 > self.y2:
-            ye2 = y2
-
-        if [self.x1, self.x2, self.y1, self.y2] != [xe1, xe2, ye1, ye2]:
-            self.x1, self.x2, self.y1, self.y2 = xe1, xe2, ye1, ye2
-            self._move_viewport(xe1, ye1, xe2, ye2)
-
+        self._check_viewport_borders(x2, y2)
         self.canvas.coords(self.arrow, x1, y1, x2, y2)
 
     def _set_pen(self):
@@ -396,20 +393,7 @@ class Application(tk.Tk):
         x2, y2 = event.x, event.y
         dist = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
         if dist > 3:
-            xe1, xe2, ye1, ye2 = self.x1, self.x2, self.y1, self.y2
-            if x2 < self.x1:
-                xe1 = x2
-            if x2 > self.x2:
-                xe2 = x2
-            if y2 < self.y1:
-                ye1 = y2
-            if y2 > self.y2:
-                ye2 = y2
-
-            if [self.x1, self.x2, self.y1, self.y2] != [xe1, xe2, ye1, ye2]:
-                self.x1, self.x2, self.y1, self.y2 = xe1, xe2, ye1, ye2
-                self._move_viewport(xe1, ye1, xe2, ye2)
-
+            self._check_viewport_borders(x2, y2)
             coords.append(x2)
             coords.append(y2)
             self.canvas.coords(self.pen, coords)
@@ -429,20 +413,7 @@ class Application(tk.Tk):
     def _line_move(self, event):
         x1, y1, *_ = self.canvas.coords(self.line)
         x2, y2 = event.x, event.y
-        xe1, xe2, ye1, ye2 = self.x1, self.x2, self.y1, self.y2
-        if x2 < self.x1:
-            xe1 = x2
-        if x2 > self.x2:
-            xe2 = x2
-        if y2 < self.y1:
-            ye1 = y2
-        if y2 > self.y2:
-            ye2 = y2
-
-        if [self.x1, self.x2, self.y1, self.y2] != [xe1, xe2, ye1, ye2]:
-            self.x1, self.x2, self.y1, self.y2 = xe1, xe2, ye1, ye2
-            self._move_viewport(xe1, ye1, xe2, ye2)
-
+        self._check_viewport_borders(x2, y2)
         self.canvas.coords(self.line, x1, y1, x2, y2)
 
     def _line_angle_move(self, angle, event):
@@ -452,20 +423,7 @@ class Application(tk.Tk):
         length = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
         x2 = int(x1 + length * sin(alpha))
         y2 = int(y1 + length * cos(alpha))
-        xe1, xe2, ye1, ye2 = self.x1, self.x2, self.y1, self.y2
-        if x2 < self.x1:
-            xe1 = x2
-        if x2 > self.x2:
-            xe2 = x2
-        if y2 < self.y1:
-            ye1 = y2
-        if y2 > self.y2:
-            ye2 = y2
-
-        if [self.x1, self.x2, self.y1, self.y2] != [xe1, xe2, ye1, ye2]:
-            self.x1, self.x2, self.y1, self.y2 = xe1, xe2, ye1, ye2
-            self._move_viewport(xe1, ye1, xe2, ye2)
-
+        self._check_viewport_borders(x2, y2)
         self.canvas.coords(self.line, x1, y1, x2, y2)
 
     def _set_rect(self):
@@ -485,20 +443,7 @@ class Application(tk.Tk):
     def _rect_move(self, event):
         x1, y1, *_ = self.canvas.coords(self.rect)
         x2, y2 = event.x, event.y
-        xe1, xe2, ye1, ye2 = self.x1, self.x2, self.y1, self.y2
-        if x2 < self.x1:
-            xe1 = x2
-        if x2 > self.x2:
-            xe2 = x2
-        if y2 < self.y1:
-            ye1 = y2
-        if y2 > self.y2:
-            ye2 = y2
-
-        if [self.x1, self.x2, self.y1, self.y2] != [xe1, xe2, ye1, ye2]:
-            self.x1, self.x2, self.y1, self.y2 = xe1, xe2, ye1, ye2
-            self._move_viewport(xe1, ye1, xe2, ye2)
-
+        self._check_viewport_borders(x2, y2)
         self.canvas.coords(self.rect, self.rect_x, self.rect_y, x2, y2)
 
     def _set_text(self):
@@ -520,24 +465,11 @@ class Application(tk.Tk):
     def _text_move(self, event):
         x1, y1, *_ = self.canvas.coords(self.txt_rect)
         x2, y2 = event.x, event.y
-        xe1, xe2, ye1, ye2 = self.x1, self.x2, self.y1, self.y2
-        if x2 < self.x1:
-            xe1 = x2
-        if x2 > self.x2:
-            xe2 = x2
-        if y2 < self.y1:
-            ye1 = y2
-        if y2 > self.y2:
-            ye2 = y2
-
-        if [self.x1, self.x2, self.y1, self.y2] != [xe1, xe2, ye1, ye2]:
-            self.x1, self.x2, self.y1, self.y2 = xe1, xe2, ye1, ye2
-            self._move_viewport(xe1, ye1, xe2, ye2)
-
+        self._check_viewport_borders(x2, y2)
         self.canvas.coords(self.txt_rect, self.txt_rect_x, self.txt_rect_y, x2, y2)
 
-        self.txt_bounds['width'] = abs(y2-self.txt_rect_y)
-        self.txt_bounds['height'] = abs(x2-self.txt_rect_x)
+        self.txt_bounds['width'] = abs(x2-self.txt_rect_x)
+        self.txt_bounds['height'] = abs(y2-self.txt_rect_y)
 
     def _create_txt_bg(self, bbox, color, alpha, txt_tag):
         x1, y1, x2, y2 = bbox
@@ -556,6 +488,10 @@ class Application(tk.Tk):
 
         if event.keysym == 'BackSpace':
             self.txt = self.txt[:-1]
+            if not ('\r' in self.txt) and self.txt_bounds['height'] == 0:
+                self.txt_bounds['width'] = 0
+                self.canvas.delete('fix')
+
         elif event.keysym in ['Control_L', 'Control_R']:
             if self.canvas.find_withtag(f'{tag}_bg') != ():
                 self.canvas.delete(f'{tag}_bg')
@@ -563,9 +499,11 @@ class Application(tk.Tk):
             else:
                 self._create_txt_bg(self.canvas.coords(self.txt_rect), 'white', 0.8, tag)
                 self.canvas.itemconfig(self.txt_rect, state='hidden')
+
         elif event.keysym == 'Escape':
             self._text_stop()
             return
+
         else:
             self.txt = self.txt + event.char
 
@@ -583,7 +521,7 @@ class Application(tk.Tk):
 
         if bounds[2] > self.canvas.coords(self.txt_rect)[2]:
             if self.txt_bounds['width'] != 0:
-                self.txt = self.txt[:-1] + '\n' + self.txt[-1]
+                self.txt = self.txt[:-1] + '\r' + self.txt[-1]
                 self.canvas.itemconfig(self._txt, text=self.txt)
                 bounds = self.canvas.bbox(self._txt)
             else:
@@ -661,23 +599,9 @@ class Application(tk.Tk):
         self.canvas.tag_bind(self.blur, '<ButtonPress-3>', partial(self.canvas.delete, self.blur))
 
     def _blur_move(self, event):
-        x1, y1, *_ = self.canvas.coords(self.blur)
+        x1, y1 = self.blur_x, self.blur_y
         x2, y2 = event.x, event.y
-        xe1, xe2, ye1, ye2 = self.x1, self.x2, self.y1, self.y2
-        if x2 < self.x1:
-            xe1 = x2
-        if x2 > self.x2:
-            xe2 = x2
-        if y2 < self.y1:
-            ye1 = y2
-        if y2 > self.y2:
-            ye2 = y2
-
-        if [self.x1, self.x2, self.y1, self.y2] != [xe1, xe2, ye1, ye2]:
-            self.x1, self.x2, self.y1, self.y2 = xe1, xe2, ye1, ye2
-            self._move_viewport(xe1, ye1, xe2, ye2)
-
-        x1, x2, y1, y2 = self.blur_x, event.x, self.blur_y, event.y
+        self._check_viewport_borders(x2, y2)
 
         anchor = 's' if y2 < y1 else 'n'
         anchor = anchor + 'e' if x2 < x1 else anchor + 'w'
@@ -720,19 +644,7 @@ class Application(tk.Tk):
     def _number_move(self, event):
         x1, y1, *_ = self.canvas.coords(self.number_arrow)
         x2, y2 = event.x, event.y
-        xe1, xe2, ye1, ye2 = self.x1, self.x2, self.y1, self.y2
-        if x2 < self.x1:
-            xe1 = x2
-        if x2 > self.x2:
-            xe2 = x2
-        if y2 < self.y1:
-            ye1 = y2
-        if y2 > self.y2:
-            ye2 = y2
-
-        if [self.x1, self.x2, self.y1, self.y2] != [xe1, xe2, ye1, ye2]:
-            self.x1, self.x2, self.y1, self.y2 = xe1, xe2, ye1, ye2
-            self._move_viewport(xe1, ye1, xe2, ye2)
+        self._check_viewport_borders(x2, y2)
 
         length = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
         self.canvas.itemconfig(self.number_arrow, arrowshape=(length, length, 20))
