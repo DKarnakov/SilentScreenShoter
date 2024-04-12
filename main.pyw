@@ -576,10 +576,10 @@ class Application(tk.Tk):
             self.txt_bounds['width'] = bounds[2] - bounds[0]
             size = 10
             x1, y1, x2, y2 = self.canvas.coords(self.txt_rect)
-            self.canvas.create_line(x1, y1, x1 + size, y1, width=2, tags='fix')
-            self.canvas.create_line(x1, y1, x1, y1 + size, width=2, tags='fix')
-            self.canvas.create_line(x2, y1, x2 - size, y1, width=2, tags='fix')
-            self.canvas.create_line(x2, y1, x2, y1 + size, width=2, tags='fix')
+            self.canvas.create_line(x1, y1, x1 + size, y1, width=2, tags=['fix', 'service'])
+            self.canvas.create_line(x1, y1, x1, y1 + size, width=2, tags=['fix', 'service'])
+            self.canvas.create_line(x2, y1, x2 - size, y1, width=2, tags=['fix', 'service'])
+            self.canvas.create_line(x2, y1, x2, y1 + size, width=2, tags=['fix', 'service'])
 
         if bounds[2] > self.canvas.coords(self.txt_rect)[2]:
             if self.txt_bounds['width'] != 0:
@@ -627,14 +627,14 @@ class Application(tk.Tk):
         if self.txt_bounds['width'] > 20 and self.txt_bounds['height'] > 20:
             size = 10
             x1, y1, x2, y2 = self.canvas.coords(self.txt_rect)
-            self.canvas.create_line(x1, y1, x1 + size, y1, width=2, tags='fix')
-            self.canvas.create_line(x1, y1, x1, y1 + size, width=2, tags='fix')
-            self.canvas.create_line(x2, y1, x2 - size, y1, width=2, tags='fix')
-            self.canvas.create_line(x2, y1, x2, y1 + size, width=2, tags='fix')
-            self.canvas.create_line(x2, y2, x2 - size, y2, width=2, tags='fix')
-            self.canvas.create_line(x2, y2, x2, y2 - size, width=2, tags='fix')
-            self.canvas.create_line(x1, y2, x1 + size, y2, width=2, tags='fix')
-            self.canvas.create_line(x1, y2, x1, y2 - size, width=2, tags='fix')
+            self.canvas.create_line(x1, y1, x1 + size, y1, width=2, tags=['fix', 'service'])
+            self.canvas.create_line(x1, y1, x1, y1 + size, width=2, tags=['fix', 'service'])
+            self.canvas.create_line(x2, y1, x2 - size, y1, width=2, tags=['fix', 'service'])
+            self.canvas.create_line(x2, y1, x2, y1 + size, width=2, tags=['fix', 'service'])
+            self.canvas.create_line(x2, y2, x2 - size, y2, width=2, tags=['fix', 'service'])
+            self.canvas.create_line(x2, y2, x2, y2 - size, width=2, tags=['fix', 'service'])
+            self.canvas.create_line(x1, y2, x1 + size, y2, width=2, tags=['fix', 'service'])
+            self.canvas.create_line(x1, y2, x1, y2 - size, width=2, tags=['fix', 'service'])
 
     def _text_stop(self):
         self.canvas.itemconfig(self.txt_rect, state='hidden')
