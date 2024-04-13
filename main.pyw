@@ -35,7 +35,6 @@ class Application(tk.Tk):
 
         self.screenshot_area_tk = None
         self.txt = ''
-        self.txt_rect = None
         self.screenshot_area = None
         self.viewport = None
         self.border = None
@@ -44,9 +43,8 @@ class Application(tk.Tk):
         self.color = 0
         self.num = 1
         self.point = {}
-        self.blur_stack = []
-        self.txt_bounds = {'width': 0, 'height': 0}
-        self.txt_bg = []
+        self.txt_lower_border = 0
+        self.image_stack = []
 
         self.panel = ttk.Frame(self.canvas)
         self.arrow_button = ttk.Button(self.panel, text='Стрелка', command=lambda: self._set_arrow())
@@ -157,9 +155,6 @@ class Application(tk.Tk):
             self._create_corner(corner, x1, y1, cursors[corner])
 
         self.x1, self.x2, self.y1, self.y2 = x1, x2, y1, y2
-
-        self.txt_rect = self.canvas.create_rectangle(0, 0, 0, 0, tags='service', dash=5, width=2, outline='darkgrey')
-        self.canvas.itemconfig(self.txt_rect, state='hidden')
 
         self.viewport_size = self.canvas.create_text(x1 - 5, y1 - 7,
                                                      anchor='sw', text='0×0',
@@ -454,129 +449,80 @@ class Application(tk.Tk):
         self._set_selection(self.text_button)
 
     def _text_create(self, event):
-        self.txt_rect_x = event.x
-        self.txt_rect_y = event.y
-        self.canvas.itemconfig(self.txt_rect, state='normal')
-        self.canvas.coords(self.txt_rect, self.txt_rect_x, self.txt_rect_y, event.x + 20, event.y + 30)
-        self.txt_bounds = {'width': 0, 'height': 0}
-        self.canvas.delete('fix')
+        self.txt_rect_x = event.x - 10
+        self.txt_rect_y = event.y - 15
+        self.txt_tag = 0
+        while self.canvas.find_withtag(f'txt{self.txt_tag}') != ():
+            self.txt_tag += 1
+        self._create_txt_bg((event.x - 10, event.y - 15, event.x + 10, event.y + 15), 'white', 0.8)
+        self._txt = self.canvas.create_text(self.txt_rect_x, self.txt_rect_y, tags=['editor', f'txt{self.txt_tag}'])
+        self.txt_lower_border = 0
         self.unbind('<Escape>')
 
     def _text_move(self, event):
-        x1, y1, *_ = self.canvas.coords(self.txt_rect)
+        x1, y1 = self.txt_rect_x, self.txt_rect_y
         x2, y2 = event.x, event.y
         self._check_viewport_borders(x2, y2)
-        self.canvas.coords(self.txt_rect, self.txt_rect_x, self.txt_rect_y, x2, y2)
 
-        self.txt_bounds['width'] = abs(x2-self.txt_rect_x)
-        self.txt_bounds['height'] = abs(y2-self.txt_rect_y)
+        x2, x1 = (x1, x2) if x2 < x1 else (x2, x1)
+        y2, y1 = (y1, y2) if y2 < y1 else (y2, y1)
 
-    def _create_txt_bg(self, bbox, color, alpha, txt_tag):
+        del self.image_stack[-1]
+        self._create_txt_bg((x1, y1, x2, y2), 'white', 0.8)
+
+        self.txt_lower_border = y2
+        self.canvas.itemconfig(self._txt, width=x2-x1)
+
+    def _create_txt_bg(self, bbox, color, alpha):
         x1, y1, x2, y2 = bbox
         alpha = int(alpha * 255)
         fill = self.winfo_rgb(color) + (alpha,)
         self.txt_bg_image = Image.new('RGBA', (int(x2-x1), int(y2-y1)))
         draw = ImageDraw.Draw(self.txt_bg_image)
         draw.rounded_rectangle(((0, 0), (int(x2-x1), int(y2-y1))), 7, fill=fill, outline=fill)
-        self.txt_bg.append(ImageTk.PhotoImage(self.txt_bg_image))
-        self.canvas.create_image(x1, y1, image=self.txt_bg[-1], anchor='nw',
-                                 tags=['editor', txt_tag, f'{txt_tag}_bg'])
-        self.canvas.tag_lower(f'{txt_tag}_bg', txt_tag)
+        self.image_stack.append(ImageTk.PhotoImage(self.txt_bg_image))
+        self.canvas.create_image(x1, y1, image=self.image_stack[-1], anchor='nw',
+                                 tags=['editor', f'txt{self.txt_tag}', f'txt{self.txt_tag}_bg'])
+        self.canvas.tag_lower(f'txt{self.txt_tag}_bg', f'txt{self.txt_tag}')
 
     def _key_handler(self, event):
-        tag = self.canvas.gettags(self._txt)[1]
-
         if event.keysym == 'BackSpace':
             self.txt = self.txt[:-1]
-            if not ('\r' in self.txt) and self.txt_bounds['height'] == 0:
-                self.txt_bounds['width'] = 0
-                self.canvas.delete('fix')
-
-        elif event.keysym in ['Control_L', 'Control_R']:
-            if self.canvas.find_withtag(f'{tag}_bg') != ():
-                self.canvas.delete(f'{tag}_bg')
-                self.canvas.itemconfig(self.txt_rect, state='normal')
-            else:
-                self._create_txt_bg(self.canvas.coords(self.txt_rect), 'white', 0.8, tag)
-                self.canvas.itemconfig(self.txt_rect, state='hidden')
-
         elif event.keysym == 'Escape':
             self._text_stop()
             return
-
         else:
             self.txt = self.txt + event.char
 
         self.canvas.itemconfig(self._txt, text=self.txt)
-
         bounds = self.canvas.bbox(self._txt)
-        if event.keysym == 'Return' and self.txt_bounds['width'] == 0:
-            self.txt_bounds['width'] = bounds[2] - bounds[0]
-            size = 10
-            x1, y1, x2, y2 = self.canvas.coords(self.txt_rect)
-            self.canvas.create_line(x1, y1, x1 + size, y1, width=2, tags=['fix', 'service'])
-            self.canvas.create_line(x1, y1, x1, y1 + size, width=2, tags=['fix', 'service'])
-            self.canvas.create_line(x2, y1, x2 - size, y1, width=2, tags=['fix', 'service'])
-            self.canvas.create_line(x2, y1, x2, y1 + size, width=2, tags=['fix', 'service'])
 
-        if bounds[2] > self.canvas.coords(self.txt_rect)[2]:
-            if self.txt_bounds['width'] != 0:
-                self.txt = self.txt[:-1] + '\r' + self.txt[-1]
-                self.canvas.itemconfig(self._txt, text=self.txt)
-                bounds = self.canvas.bbox(self._txt)
-            else:
-                x1, y1, _, y2 = self.canvas.coords(self.txt_rect)
-                self.canvas.coords(self.txt_rect, x1, y1, bounds[2], y2)
-                if self.canvas.find_withtag(f'{tag}_bg') != ():
-                    self.canvas.delete(f'{tag}_bg')
-                    self._create_txt_bg(self.canvas.coords(self.txt_rect), 'white', 0.8, tag)
-                if bounds[2] > self.x2:
-                    self.x2 = bounds[2]
-                    self._move_viewport(self.x1, self.y1, self.x2, self.y2)
-
-        if bounds[3] > self.canvas.coords(self.txt_rect)[3]:
-            if self.txt_bounds['height'] != 0:
+        if self.txt_lower_border == 0:
+            self._check_viewport_borders(bounds[2], bounds[3])
+            del self.image_stack[-1]
+            self._create_txt_bg(bounds, 'white', 0.8)
+        else:
+            while bounds[3] > self.txt_lower_border:
                 self.font_size -= 1
                 self.canvas.itemconfig(self._txt, font=f'Helvetica {self.font_size} bold')
-            else:
-                x1, y1, x2, _ = self.canvas.coords(self.txt_rect)
-                self.canvas.coords(self.txt_rect, x1, y1, x2, bounds[3])
-                if self.canvas.find_withtag(f'{tag}_bg') != ():
-                    self.canvas.delete(f'{tag}_bg')
-                    self._create_txt_bg(self.canvas.coords(self.txt_rect), 'white', 0.8, tag)
-                if bounds[3] > self.y2:
-                    self.y2 = bounds[3]
-                    self._move_viewport(self.x1, self.y1, self.x2, self.y2)
+                bounds = self.canvas.bbox(self._txt)
 
     def _text_start(self):
         self.bind('<Key>', self._key_handler)
+
         self.txt = ''
         text_color = self.palette[self.color % self.colors]
-        x, y, *_ = self.canvas.coords(self.txt_rect)
         self.font_size = 18
-        tag = 0
-        while self.canvas.find_withtag(f'txt{tag}') != ():
-            tag += 1
-        self._txt = self.canvas.create_text(x, y, text=self.txt, fill=text_color,
-                                            anchor='nw', font=f'Helvetica {self.font_size} bold',
-                                            tags=['editor', f'txt{tag}'])
-        self.canvas.tag_bind(f'txt{tag}', '<ButtonPress-3>', partial(self.canvas.delete, f'txt{tag}'))
 
-        if self.txt_bounds['width'] > 20 and self.txt_bounds['height'] > 20:
-            size = 10
-            x1, y1, x2, y2 = self.canvas.coords(self.txt_rect)
-            self.canvas.create_line(x1, y1, x1 + size, y1, width=2, tags=['fix', 'service'])
-            self.canvas.create_line(x1, y1, x1, y1 + size, width=2, tags=['fix', 'service'])
-            self.canvas.create_line(x2, y1, x2 - size, y1, width=2, tags=['fix', 'service'])
-            self.canvas.create_line(x2, y1, x2, y1 + size, width=2, tags=['fix', 'service'])
-            self.canvas.create_line(x2, y2, x2 - size, y2, width=2, tags=['fix', 'service'])
-            self.canvas.create_line(x2, y2, x2, y2 - size, width=2, tags=['fix', 'service'])
-            self.canvas.create_line(x1, y2, x1 + size, y2, width=2, tags=['fix', 'service'])
-            self.canvas.create_line(x1, y2, x1, y2 - size, width=2, tags=['fix', 'service'])
+        self.txt_rect_x, self.txt_rect_y, *_ = self.canvas.bbox(f'txt{self.txt_tag}_bg')
+        self.canvas.coords(self._txt, self.txt_rect_x, self.txt_rect_y)
+
+        self.canvas.itemconfig(self._txt, text=self.txt, fill=text_color,
+                               anchor='nw', font=f'Helvetica {self.font_size} bold')
+        self.canvas.tag_bind(f'txt{self.txt_tag}', '<ButtonPress-3>',
+                             partial(self.canvas.delete, f'txt{self.txt_tag}'))
 
     def _text_stop(self):
-        self.canvas.itemconfig(self.txt_rect, state='hidden')
-        self.canvas.delete('fix')
         self.unbind('<Key>')
         self.bind('<Escape>', lambda e: self.destroy())
 
@@ -591,8 +537,8 @@ class Application(tk.Tk):
         x1, y1, x2, y2 = event.x, event.y, event.x, event.y
 
         blur_area = self.blur_image.crop((x1, y1, x2, y2))
-        self.blur_stack.append(ImageTk.PhotoImage(blur_area))
-        self.blur = self.canvas.create_image(x1, y1, anchor='nw', image=self.blur_stack[-1], tags='editor')
+        self.image_stack.append(ImageTk.PhotoImage(blur_area))
+        self.blur = self.canvas.create_image(x1, y1, anchor='nw', image=self.image_stack[-1], tags='editor')
         self.canvas.tag_raise(self.blur, self.viewport)
         self.blur_x = x1
         self.blur_y = y1
@@ -610,8 +556,8 @@ class Application(tk.Tk):
         y2, y1 = (y1, y2) if y2 < y1 else (y2, y1)
 
         blur_area = self.blur_image.crop((x1, y1, x2, y2))
-        self.blur_stack[-1] = ImageTk.PhotoImage(blur_area)
-        self.canvas.itemconfig(self.blur, anchor=anchor, image=self.blur_stack[-1], tags='editor')
+        self.image_stack[-1] = ImageTk.PhotoImage(blur_area)
+        self.canvas.itemconfig(self.blur, anchor=anchor, image=self.image_stack[-1], tags='editor')
 
     def _set_number(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._number_create(e))
@@ -669,8 +615,6 @@ class Application(tk.Tk):
     def _change_color(self, event):
         self.color += 1 if event.delta > 0 else -1
         self.color_panel['background'] = self.palette[self.color % self.colors]
-        if self.canvas.itemcget(self.txt_rect, 'state') != 'hidden':
-            self.canvas.itemconfig(self._txt, fill=self.palette[self.color % self.colors])
 
     def _recognize(self):
         txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6')
