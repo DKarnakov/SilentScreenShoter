@@ -43,7 +43,6 @@ class Application(tk.Tk):
         self.color = 0
         self.num = 1
         self.point = {}
-        self.txt_lower_border = 0
         self.image_stack = []
 
         self.panel = ttk.Frame(self.canvas)
@@ -73,14 +72,11 @@ class Application(tk.Tk):
         self.background_tk = ImageTk.PhotoImage(background)
         self.canvas.create_image(0, 0, anchor='nw', image=self.background_tk)
 
-    def _change_cursor(self, cursor):
-        self.canvas.config(cursor=cursor)
-
     def _create_corner(self, position, x, y, cursor):
         self.point[position] = self.canvas.create_rectangle(x - 4, y - 4, x + 4, y + 4, width=2,
                                                             outline='lightgrey', fill='black', tags='service')
-        self.canvas.tag_bind(self.point[position], '<Enter>', lambda e: self._change_cursor(cursor))
-        self.canvas.tag_bind(self.point[position], '<Leave>', lambda e: self._change_cursor('arrow'))
+        self.canvas.tag_bind(self.point[position], '<Enter>', lambda e:  self.canvas.config(cursor=cursor))
+        self.canvas.tag_bind(self.point[position], '<Leave>', lambda e:  self.canvas.config(cursor=''))
         self.canvas.tag_bind(self.point[position], '<B1-Motion>', lambda e: self._change_viewport(position, e))
         self.canvas.tag_bind(self.point[position], '<ButtonRelease-1>', lambda e: self._fix_viewport(position, e))
 
@@ -138,7 +134,7 @@ class Application(tk.Tk):
 
         self.viewport = self.canvas.create_image(x1, y1, anchor='nw', image=self.screenshot_area_tk, tags='editor')
 
-        self._change_cursor('arrow')
+        self.canvas.config(cursor='fleur')
 
         self.border = self.canvas.create_rectangle(x1, y1, x2, y2,
                                                    width=2, dash=50, outline='lightgrey',
@@ -449,14 +445,14 @@ class Application(tk.Tk):
         self._set_selection(self.text_button)
 
     def _text_create(self, event):
-        self.txt_rect_x = event.x - 10
+        self.txt_rect_x = event.x
         self.txt_rect_y = event.y - 15
         self.txt_tag = 0
         while self.canvas.find_withtag(f'txt{self.txt_tag}') != ():
             self.txt_tag += 1
-        self._create_txt_bg((event.x - 10, event.y - 15, event.x + 10, event.y + 15), 'white', 0.8)
+        self._create_txt_bg((event.x, event.y - 15, event.x + 10, event.y + 15), 'white', 0.8)
         self._txt = self.canvas.create_text(self.txt_rect_x, self.txt_rect_y, tags=['editor', f'txt{self.txt_tag}'])
-        self.txt_lower_border = 0
+        self.txt_size = {'x': 0, 'y': 0}
         self.unbind('<Escape>')
 
     def _text_move(self, event):
@@ -470,18 +466,18 @@ class Application(tk.Tk):
         del self.image_stack[-1]
         self._create_txt_bg((x1, y1, x2, y2), 'white', 0.8)
 
-        self.txt_lower_border = y2
-        self.canvas.itemconfig(self._txt, width=x2-x1)
+        self.txt_size['x'] = x2
+        self.txt_size['y'] = y2
 
     def _create_txt_bg(self, bbox, color, alpha):
         x1, y1, x2, y2 = bbox
         alpha = int(alpha * 255)
         fill = self.winfo_rgb(color) + (alpha,)
-        self.txt_bg_image = Image.new('RGBA', (int(x2-x1), int(y2-y1)))
+        self.txt_bg_image = Image.new('RGBA', (int(x2-x1)+6, int(y2-y1)))
         draw = ImageDraw.Draw(self.txt_bg_image)
-        draw.rounded_rectangle(((0, 0), (int(x2-x1), int(y2-y1))), 7, fill=fill, outline=fill)
+        draw.rounded_rectangle(((0, 0), (int(x2-x1)+6, int(y2-y1))), 7, fill=fill, outline=fill)
         self.image_stack.append(ImageTk.PhotoImage(self.txt_bg_image))
-        self.canvas.create_image(x1, y1, image=self.image_stack[-1], anchor='nw',
+        self.canvas.create_image(x1-3, y1, image=self.image_stack[-1], anchor='nw',
                                  tags=['editor', f'txt{self.txt_tag}', f'txt{self.txt_tag}_bg'])
         self.canvas.tag_lower(f'txt{self.txt_tag}_bg', f'txt{self.txt_tag}')
 
@@ -496,16 +492,10 @@ class Application(tk.Tk):
 
         self.canvas.itemconfig(self._txt, text=self.txt)
         bounds = self.canvas.bbox(self._txt)
-
-        if self.txt_lower_border == 0:
-            self._check_viewport_borders(bounds[2], bounds[3])
-            del self.image_stack[-1]
-            self._create_txt_bg(bounds, 'white', 0.8)
-        else:
-            while bounds[3] > self.txt_lower_border:
-                self.font_size -= 1
-                self.canvas.itemconfig(self._txt, font=f'Helvetica {self.font_size} bold')
-                bounds = self.canvas.bbox(self._txt)
+        bounds = (bounds[0], bounds[1], max(self.txt_size['x'], bounds[2]), max(self.txt_size['y'], bounds[3]))
+        self._check_viewport_borders(bounds[2], bounds[3])
+        del self.image_stack[-1]
+        self._create_txt_bg(bounds, 'white', 0.8)
 
     def _text_start(self):
         self.bind('<Key>', self._key_handler)
@@ -583,9 +573,7 @@ class Application(tk.Tk):
         self.number_txt = self.canvas.create_text(event.x, event.y, text=self.num, fill=text_color,
                                                   anchor='center', font='Helvetica 18 bold',
                                                   tags=[tag, 'editor'])
-        self.canvas.tag_bind(self.number_arrow, '<ButtonPress-3>', partial(self._number_delete, tag))
-        self.canvas.tag_bind(self.number_circle, '<ButtonPress-3>', partial(self._number_delete, tag))
-        self.canvas.tag_bind(self.number_txt, '<ButtonPress-3>', partial(self._number_delete, tag))
+        self.canvas.tag_bind(tag, '<ButtonPress-3>', partial(self._number_delete, tag))
 
     def _number_move(self, event):
         x1, y1, *_ = self.canvas.coords(self.number_arrow)
