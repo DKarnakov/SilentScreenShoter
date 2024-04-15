@@ -529,7 +529,10 @@ class Application(tk.Tk):
         self._create_txt_bg(bounds, 'white', 0.8)
 
     def _key_control_handler(self, event):
-        if event.keycode in [109, 189]:
+        if event.keysym == 'Return':
+            self._text_stop()
+            return
+        elif event.keycode in [109, 189]:
             self.font_size = self.font_size - 1 if self.font_size > 9 else 9
         elif event.keycode in [107, 187]:
             self.font_size = self.font_size + 1 if self.font_size < 18 else 18
@@ -559,6 +562,7 @@ class Application(tk.Tk):
 
     def _text_stop(self):
         self.unbind('<Key>')
+        self.unbind('<Control-Key>')
         self.bind('<Escape>', lambda e: self.destroy())
         if self.txt == '':
             self.canvas.delete(f'txt{self.txt_tag}')
@@ -651,6 +655,8 @@ class Application(tk.Tk):
     def _change_color(self, event):
         self.color += 1 if event.delta > 0 else -1
         self.color_panel['background'] = self.palette[self.color % self.colors]
+        if self.text_edit:
+            self.canvas.itemconfig(self._txt,fill=self.palette[self.color % self.colors])
 
     def _recognize(self):
         txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6')
@@ -702,7 +708,7 @@ class Notepad(tk.Tk):
         self.text.bind('<Button-3>', self._context_menu)
         self.text.bind('<Escape>', lambda e: self._on_destroy())
 
-        self.text.insert('1.0', txt[:-2])
+        self.text.insert('1.0', txt[:-1])
         self.update()
 
     def _context_menu(self, event):
