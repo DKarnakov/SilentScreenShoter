@@ -258,6 +258,13 @@ class Application(tk.Tk):
         x2, x1 = (x1, x2) if x2 < x1 else (x2, x1)
         y2, y1 = (y1, y2) if y2 < y1 else (y2, y1)
 
+        if not (self.canvas.bbox('item') is None):
+            xb1, yb1, xb2, yb2 = self.canvas.bbox('item')
+            x1 = min(x1, xb1)
+            x2 = max(x2, xb2)
+            y1 = min(y1, yb1)
+            y2 = max(y2, yb2)
+
         self.screenshot_area = self.image.crop((x1, y1, x2, y2))
         self.screenshot_area_tk = ImageTk.PhotoImage(self.screenshot_area)
         self.canvas.moveto(self.viewport, x1, y1)
@@ -354,7 +361,7 @@ class Application(tk.Tk):
     def _arrow_create(self, event):
         self.arrow = self.canvas.create_line(event.x, event.y, event.x, event.y,
                                              fill=self.palette[self.color % self.colors],
-                                             width=5, tags='editor',
+                                             width=5, tags=['editor', 'item'],
                                              arrowshape=(17, 25, 7), capstyle='round',
                                              arrow=tk.LAST)
         self.canvas.tag_bind(self.arrow, '<ButtonPress-3>', partial(self.canvas.delete, self.arrow))
@@ -375,7 +382,7 @@ class Application(tk.Tk):
     def _pen_create(self, event):
         self.pen = self.canvas.create_line(event.x, event.y, event.x, event.y, width=5,
                                            fill=self.palette[self.color % self.colors],
-                                           tags='editor')
+                                           tags=['editor', 'item'])
         self.canvas.tag_bind(self.pen, '<ButtonPress-3>', partial(self.canvas.delete, self.pen))
 
     def _pen_draw(self, event):
@@ -398,7 +405,7 @@ class Application(tk.Tk):
         self._set_selection(self.line_button)
 
     def _line_create(self, event):
-        self.line = self.canvas.create_line(event.x, event.y, event.x, event.y, tags='editor',
+        self.line = self.canvas.create_line(event.x, event.y, event.x, event.y, tags=['editor', 'item'],
                                             fill=self.palette[self.color % self.colors], width=5, capstyle='round')
         self.canvas.tag_bind(self.line, '<ButtonPress-3>', partial(self.canvas.delete, self.line))
 
@@ -426,7 +433,7 @@ class Application(tk.Tk):
         self._set_selection(self.rect_button)
 
     def _rect_create(self, event):
-        self.rect = self.canvas.create_rectangle(event.x, event.y, event.x, event.y, tags='editor',
+        self.rect = self.canvas.create_rectangle(event.x, event.y, event.x, event.y, tags=['editor', 'item'],
                                                  outline=self.palette[self.color % self.colors], width=5)
         self.canvas.tag_bind(self.rect, '<ButtonPress-3>', partial(self.canvas.delete, self.rect))
         self.rect_x = event.x
@@ -457,7 +464,7 @@ class Application(tk.Tk):
         self._create_txt_bg((event.x-5, event.y-15, event.x+5, event.y+15), 'white', 0.8)
         self._check_viewport_borders(event.x-5, event.y-15)
         self._txt = self.canvas.create_text(self.txt_rect_x, self.txt_rect_y, anchor='nw',
-                                            tags=['editor', f'txt{self.txt_tag}'])
+                                            tags=['editor', f'txt{self.txt_tag}', 'item'])
         self.text_edit = True
         self.txt_size = {'x': 0, 'y': 0}
         self.unbind('<Escape>')
@@ -485,7 +492,7 @@ class Application(tk.Tk):
         draw.rounded_rectangle(((0, 0), (int(x2-x1), int(y2-y1))), 6, fill=fill, outline=fill)
         self.image_stack.append(ImageTk.PhotoImage(self.txt_bg_image))
         self.canvas.create_image(x1, y1, image=self.image_stack[-1], anchor='nw',
-                                 tags=['editor', f'txt{self.txt_tag}', f'txt{self.txt_tag}_bg'])
+                                 tags=['editor', f'txt{self.txt_tag}', f'txt{self.txt_tag}_bg', 'item'])
         self.canvas.tag_lower(f'txt{self.txt_tag}_bg', f'txt{self.txt_tag}')
 
     def _move_txt(self, direction, step=1):
@@ -580,7 +587,7 @@ class Application(tk.Tk):
 
         blur_area = self.blur_image.crop((x1, y1, x2, y2))
         self.image_stack.append(ImageTk.PhotoImage(blur_area))
-        self.blur = self.canvas.create_image(x1, y1, anchor='nw', image=self.image_stack[-1], tags='editor')
+        self.blur = self.canvas.create_image(x1, y1, anchor='nw', image=self.image_stack[-1], tags=['editor', 'item'])
         self.canvas.tag_raise(self.blur, self.viewport)
         self.blur_x = x1
         self.blur_y = y1
@@ -599,7 +606,7 @@ class Application(tk.Tk):
 
         blur_area = self.blur_image.crop((x1, y1, x2, y2))
         self.image_stack[-1] = ImageTk.PhotoImage(blur_area)
-        self.canvas.itemconfig(self.blur, anchor=anchor, image=self.image_stack[-1], tags='editor')
+        self.canvas.itemconfig(self.blur, anchor=anchor, image=self.image_stack[-1], tags=['editor', 'item'])
 
     def _set_number(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._number_create(e))
@@ -615,16 +622,16 @@ class Application(tk.Tk):
         self.number_arrow = self.canvas.create_line(event.x, event.y, event.x, event.y,
                                                     fill=self.palette[self.color % self.colors],
                                                     arrow=tk.LAST,
-                                                    tags=[tag, 'editor'])
+                                                    tags=[tag, 'editor', 'item'])
         r = 20
         self.number_circle = self.canvas.create_oval(event.x - r, event.y - r, event.x + r, event.y + r,
                                                      fill=self.palette[self.color % self.colors],
                                                      outline=self.palette[self.color % self.colors],
-                                                     tags=[tag, 'editor'])
+                                                     tags=[tag, 'editor', 'item'])
         text_color = 'darkgrey' if self.palette[self.color % self.colors] in ['white', 'yellow'] else 'white'
         self.number_txt = self.canvas.create_text(event.x, event.y, text=self.num, fill=text_color,
                                                   anchor='center', font='Helvetica 18 bold',
-                                                  tags=[tag, 'editor'])
+                                                  tags=[tag, 'editor', 'item'])
         self.canvas.tag_bind(tag, '<ButtonPress-3>', partial(self._number_delete, tag))
 
     def _number_move(self, event):
@@ -656,7 +663,7 @@ class Application(tk.Tk):
         self.color += 1 if event.delta > 0 else -1
         self.color_panel['background'] = self.palette[self.color % self.colors]
         if self.text_edit:
-            self.canvas.itemconfig(self._txt,fill=self.palette[self.color % self.colors])
+            self.canvas.itemconfig(self._txt, fill=self.palette[self.color % self.colors])
 
     def _recognize(self):
         txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6')
