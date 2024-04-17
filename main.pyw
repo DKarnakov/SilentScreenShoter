@@ -656,7 +656,7 @@ class Application(tk.Tk):
         self.color += 1 if event.delta > 0 else -1
         self.color_panel['background'] = self.palette[self.color % self.colors]
         if self.text_edit:
-            self.canvas.itemconfig(self._txt,fill=self.palette[self.color % self.colors])
+            self.canvas.itemconfig(self._txt, fill=self.palette[self.color % self.colors])
 
     def _recognize(self):
         txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6')
