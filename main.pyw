@@ -258,8 +258,9 @@ class Application(tk.Tk):
         x2, x1 = (x1, x2) if x2 < x1 else (x2, x1)
         y2, y1 = (y1, y2) if y2 < y1 else (y2, y1)
 
-        if not (self.canvas.bbox('item') is None):
-            xb1, yb1, xb2, yb2 = self.canvas.bbox('item')
+        bbox = self.canvas.bbox('item')
+        if bbox is not None:
+            xb1, yb1, xb2, yb2 = bbox
             x1 = min(x1, xb1)
             x2 = max(x2, xb2)
             y1 = min(y1, yb1)
@@ -293,6 +294,14 @@ class Application(tk.Tk):
         self.x1, self.x2, self.y1, self.y2 = x1, x2, y1, y2
 
     def _move_viewport(self, x1, y1, x2, y2):
+        bbox = self.canvas.bbox('item')
+        if bbox is not None:
+            xb1, yb1, xb2, yb2 = bbox
+            x1 = min(x1, xb1)
+            x2 = max(x2, xb2)
+            y1 = min(y1, yb1)
+            y2 = max(y2, yb2)
+
         self.screenshot_area = self.image.crop((x1, y1, x2, y2))
         self.screenshot_area_tk = ImageTk.PhotoImage(self.screenshot_area)
         self.canvas.moveto(self.viewport, x1, y1)
