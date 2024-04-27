@@ -20,7 +20,7 @@ class Application(tk.Tk):
 
         self.attributes('-fullscreen', True)
         self.attributes('-topmost', True)
-        self.after(1000, lambda: self.focus_force())
+        self.after(500, lambda: self.focus_force())
 
         self.canvas = tk.Canvas(self, cursor='cross', highlightthickness=0)
         self.canvas.pack(side='top', fill='both', expand=True)
@@ -84,6 +84,18 @@ class Application(tk.Tk):
     def _move_corner(self, position, x, y):
         self.canvas.moveto(self.point[position], x - 5, y - 5)
 
+    def _draw_borders(self, x1, y1, x2, y2):
+        self.canvas.coords(self.border, (x1, y1, x2, y2))
+
+        self._move_corner('nw', x1, y1)
+        self._move_corner('n', (x2 + x1) // 2, y1)
+        self._move_corner('ne', x2, y1)
+        self._move_corner('e', x2, (y2 + y1) // 2)
+        self._move_corner('se', x2, y2)
+        self._move_corner('s', (x2 + x1) // 2, y2)
+        self._move_corner('sw', x1, y2)
+        self._move_corner('w', x1, (y2 + y1) // 2)
+
     def _control(self, event):
         # undo
         if event.state == 12 and event.keycode == 90:  # Ctrl-z
@@ -99,7 +111,7 @@ class Application(tk.Tk):
         elif event.state == 12 and event.keycode == 83:  # Ctrl-s
             self.canvas.delete('service')
             self.canvas.update()
-            image = ImageGrab.grab(bbox=(self.x1, self.y1, self.x2, self.y2))
+            image = ImageGrab.grab(bbox=self.canvas.bbox(self.viewport))
             self.destroy()
             desktop_folder = os.path.join(os.environ['USERPROFILE'], 'Desktop')
             file_name = f'Снимок экрана {time.strftime('%d-%m-%Y %H%M%S')}'
@@ -181,7 +193,6 @@ class Application(tk.Tk):
         self.bind('<KeyRelease-Alt_L>', lambda e: self.canvas.itemconfig('precision', state='hidden'))
         self.bind('<KeyPress-Alt_R>', lambda e: self._precision())
         self.bind('<KeyRelease-Alt_R>', lambda e: self.canvas.itemconfig('precision', state='hidden'))
-
         self.bind('<Control-KeyPress>', lambda e: self._control(e))
 
     def _precision(self):
@@ -233,17 +244,7 @@ class Application(tk.Tk):
         self.screenshot_area = self.image.crop((x1, y1, x2, y2))
         self.screenshot_area_tk = ImageTk.PhotoImage(self.screenshot_area)
         self.canvas.itemconfig(self.viewport, image=self.screenshot_area_tk, anchor=anchor)
-
-        self.canvas.coords(self.border, (x1, y1, x2, y2))
-
-        self._move_corner('nw', x1, y1)
-        self._move_corner('n', (x2 + x1) // 2, y1)
-        self._move_corner('ne', x2, y1)
-        self._move_corner('e', x2, (y2 + y1) // 2)
-        self._move_corner('se', x2, y2)
-        self._move_corner('s', (x2 + x1) // 2, y2)
-        self._move_corner('sw', x1, y2)
-        self._move_corner('w', x1, (y2 + y1) // 2)
+        self._draw_borders(x1, y1, x2, y2)
 
         self.x2, self.y2 = x2, y2
 
@@ -270,17 +271,7 @@ class Application(tk.Tk):
         self.screenshot_area_tk = ImageTk.PhotoImage(self.screenshot_area)
         self.canvas.moveto(self.viewport, x1, y1)
         self.canvas.itemconfig(self.viewport, image=self.screenshot_area_tk, anchor='nw')
-
-        self.canvas.coords(self.border, (x1, y1, x2, y2))
-
-        self._move_corner('nw', x1, y1)
-        self._move_corner('n', (x2 + x1) // 2, y1)
-        self._move_corner('ne', x2, y1)
-        self._move_corner('e', x2, (y2 + y1) // 2)
-        self._move_corner('se', x2, y2)
-        self._move_corner('s', (x2 + x1) // 2, y2)
-        self._move_corner('sw', x1, y2)
-        self._move_corner('w', x1, (y2 + y1) // 2)
+        self._draw_borders(x1, y1, x2, y2)
 
     def _fix_viewport(self, corner, event):
         x1 = event.x if 'w' in corner else self.x1
@@ -288,45 +279,21 @@ class Application(tk.Tk):
         x2 = event.x if 'e' in corner else self.x2
         y2 = event.y if 's' in corner else self.y2
 
-        x2, x1 = (x1, x2) if x2 < x1 else (x2, x1)
-        y2, y1 = (y1, y2) if y2 < y1 else (y2, y1)
-
-        self.x1, self.x2, self.y1, self.y2 = x1, x2, y1, y2
-
-    def _move_viewport(self, x1, y1, x2, y2):
-        bbox = self.canvas.bbox('item')
-        if bbox is not None:
-            xb1, yb1, xb2, yb2 = bbox
-            x1 = min(x1, xb1)
-            x2 = max(x2, xb2)
-            y1 = min(y1, yb1)
-            y2 = max(y2, yb2)
-
-        self.screenshot_area = self.image.crop((x1, y1, x2, y2))
-        self.screenshot_area_tk = ImageTk.PhotoImage(self.screenshot_area)
-        self.canvas.moveto(self.viewport, x1, y1)
-        self.canvas.itemconfig(self.viewport, image=self.screenshot_area_tk, anchor='nw')
-
-        self.canvas.coords(self.border, (x1, y1, x2, y2))
-
-        self._move_corner('nw', x1, y1)
-        self._move_corner('n', (x2 + x1) // 2, y1)
-        self._move_corner('ne', x2, y1)
-        self._move_corner('e', x2, (y2 + y1) // 2)
-        self._move_corner('se', x2, y2)
-        self._move_corner('s', (x2 + x1) // 2, y2)
-        self._move_corner('sw', x1, y2)
-        self._move_corner('w', x1, (y2 + y1) // 2)
+        self.x2, self.x1 = (x1, x2) if x2 < x1 else (x2, x1)
+        self.y2, self.y1 = (y1, y2) if y2 < y1 else (y2, y1)
 
     def _check_viewport_borders(self, x, y):
-        x1 = x if x < self.x1 else self.x1
-        x2 = x if x > self.x2 else self.x2
-        y1 = y if y < self.y1 else self.y1
-        y2 = y if y > self.y2 else self.y2
+        x1 = x if x < self.canvas.bbox(self.viewport)[0] else self.canvas.bbox(self.viewport)[0]
+        x2 = x if x > self.canvas.bbox(self.viewport)[2] else self.canvas.bbox(self.viewport)[2]
+        y1 = y if y < self.canvas.bbox(self.viewport)[1] else self.canvas.bbox(self.viewport)[1]
+        y2 = y if y > self.canvas.bbox(self.viewport)[3] else self.canvas.bbox(self.viewport)[3]
 
-        if [self.x1, self.y1, self.x2, self.y2] != [x1, y1, x2, y2]:
-            self.x1, self.y1, self.x2, self.y2 = x1, y1, x2, y2
-            self._move_viewport(x1, y1, x2, y2)
+        if self.canvas.bbox(self.viewport) != [x1, y1, x2, y2]:
+            self.screenshot_area = self.image.crop((x1, y1, x2, y2))
+            self.screenshot_area_tk = ImageTk.PhotoImage(self.screenshot_area)
+            self.canvas.moveto(self.viewport, x1, y1)
+            self.canvas.itemconfig(self.viewport, image=self.screenshot_area_tk, anchor='nw')
+            self._draw_borders(x1, y1, x2, y2)
 
     def _start_editing(self, event):
         if [self.x1, self.x2, self.y1, self.y2] == [None, None, None, None]:
@@ -676,14 +643,14 @@ class Application(tk.Tk):
 
     def _recognize(self):
         txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6')
-        bbox = (self.x1, self.y1, self.x2, self.y2)
+        bbox = self.canvas.bbox(self.viewport)
         self.destroy()
         Notepad(txt, bbox).mainloop()
 
     def _done(self):
         self.canvas.delete('service')
         self.canvas.update()
-        image = ImageGrab.grab(bbox=(self.x1, self.y1, self.x2, self.y2))
+        image = ImageGrab.grab(bbox=self.canvas.bbox(self.viewport))
         copy_to_clipboard = self.done_button['text'] == 'Ok'
         self.destroy()
         if copy_to_clipboard:
