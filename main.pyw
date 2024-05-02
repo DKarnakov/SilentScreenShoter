@@ -350,6 +350,7 @@ class Application(tk.Tk):
         x2, y2 = event.x, event.y
         self._check_viewport_borders(x2, y2)
         self.canvas.coords(self.arrow, x1, y1, x2, y2)
+        self.canvas.itemconfig(self.arrow, fill=self.palette[self.color % self.colors])
 
     def _set_pen(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._pen_create(e))
@@ -375,6 +376,7 @@ class Application(tk.Tk):
             coords.append(x2)
             coords.append(y2)
             self.canvas.coords(self.pen, coords)
+            self.canvas.itemconfig(self.pen, fill=self.palette[self.color % self.colors])
 
     def _set_line(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._line_create(e))
@@ -393,6 +395,7 @@ class Application(tk.Tk):
         x2, y2 = event.x, event.y
         self._check_viewport_borders(x2, y2)
         self.canvas.coords(self.line, x1, y1, x2, y2)
+        self.canvas.itemconfig(self.line, fill=self.palette[self.color % self.colors])
 
     def _line_angle_move(self, angle, event):
         x1, y1, *_ = self.canvas.coords(self.line)
@@ -403,6 +406,7 @@ class Application(tk.Tk):
         y2 = int(y1 + length * cos(alpha))
         self._check_viewport_borders(x2, y2)
         self.canvas.coords(self.line, x1, y1, x2, y2)
+        self.canvas.itemconfig(self.line, fill=self.palette[self.color % self.colors])
 
     @staticmethod
     def _points(x1, y1, x2, y2, radius=13):
@@ -451,6 +455,7 @@ class Application(tk.Tk):
     def _rect_move(self, event):
         self._check_viewport_borders(event.x, event.y)
         self.canvas.coords(self.rect, self._points(self.rect_x, self.rect_y, event.x, event.y))
+        self.canvas.itemconfig(self.rect, fill=self.palette[self.color % self.colors])
 
     def _set_text(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._text_create(e))
