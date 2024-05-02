@@ -76,10 +76,10 @@ class Application(tk.Tk):
     def _create_corner(self, position, x, y, cursor):
         self.point[position] = self.canvas.create_rectangle(x - 4, y - 4, x + 4, y + 4, width=2,
                                                             outline='lightgrey', fill='black', tags='service')
-        self.canvas.tag_bind(self.point[position], '<Enter>', lambda e:  self.canvas.config(cursor=cursor))
-        self.canvas.tag_bind(self.point[position], '<Leave>', lambda e:  self.canvas.config(cursor=''))
+        self.canvas.tag_bind(self.point[position], '<Enter>', lambda e: self.canvas.config(cursor=cursor))
+        self.canvas.tag_bind(self.point[position], '<Leave>', lambda e: self.canvas.config(cursor=''))
         self.canvas.tag_bind(self.point[position], '<B1-Motion>', lambda e: self._change_viewport(position, e))
-        self.canvas.tag_bind(self.point[position], '<ButtonRelease-1>', lambda e: self._fix_viewport(position, e))
+        self.canvas.tag_bind(self.point[position], '<ButtonRelease-1>', lambda e: self._fix_viewport())
 
     def _move_corner(self, position, x, y):
         self.canvas.moveto(self.point[position], x - 5, y - 5)
@@ -126,12 +126,12 @@ class Application(tk.Tk):
             red = int(hex_color[1:3], base=16)
             green = int(hex_color[3:5], base=16)
             blue = int(hex_color[5:7], base=16)
-            h, s, v = rgb_to_hsv(red/255, green/255, blue/255)
-            hls = rgb_to_hls(red/255, green/255, blue/255)
+            h, s, v = rgb_to_hsv(red / 255, green / 255, blue / 255)
+            hls = rgb_to_hls(red / 255, green / 255, blue / 255)
             color_txt = (f'HEX: {hex_color}\n'
                          f'RGB: rgb({red}, {green}, {blue})\n'
-                         f'HSL: hsl({hls[0]*360:.0f}, {hls[2]:.0%}, {hls[1]:.0%})\n'
-                         f'HSV: {h*360:.0f}° {s:.0%} {v:.0%}')
+                         f'HSL: hsl({hls[0] * 360:.0f}, {hls[2]:.0%}, {hls[1]:.0%})\n'
+                         f'HSV: {h * 360:.0f}° {s:.0%} {v:.0%}')
             self.clipboard_clear()
             self.clipboard_append(color_txt)
             self.update()
@@ -211,11 +211,11 @@ class Application(tk.Tk):
         for row in range(7):
             for col in range(7):
                 try:
-                    r, g, b = self.image.getpixel((xp-3+col, yp-3+row))
+                    r, g, b = self.image.getpixel((xp - 3 + col, yp - 3 + row))
                 except IndexError:
                     r, g, b = self.image.getpixel((xp, yp))
                 self.canvas.itemconfig(f'z_{row}{col}', fill=f'#{r:02x}{g:02x}{b:02x}')
-                self.canvas.moveto(f'z_{row}{col}', x-35+col*10, y-30+row*10+70)
+                self.canvas.moveto(f'z_{row}{col}', x - 35 + col * 10, y - 30 + row * 10 + 70)
 
         self.cursor_color = self.canvas.itemcget('z_33', 'fill').upper()
         hex_red = int(self.cursor_color[1:3], base=16)
@@ -227,8 +227,8 @@ class Application(tk.Tk):
         self.canvas.itemconfig(self.color_pick_bg, fill=self.cursor_color, outline='black')
         height_pick = self.canvas.bbox(self.color_pick)[3] - self.canvas.bbox(self.color_pick)[1]
         width_pick = self.canvas.bbox(self.color_pick)[2] - self.canvas.bbox(self.color_pick)[0]
-        self.canvas.moveto(self.color_pick, x-width_pick//2+1, y-height_pick-32+70)
-        self.canvas.coords(self.color_pick_bg, (x-34, y-height_pick-32+70, x+36, y-32+70))
+        self.canvas.moveto(self.color_pick, x - width_pick // 2 + 1, y - height_pick - 32 + 70)
+        self.canvas.coords(self.color_pick_bg, (x - 34, y - height_pick - 32 + 70, x + 36, y - 32 + 70))
         self.canvas.tag_raise('precision')
         self.canvas.tag_raise('z_33')
 
@@ -273,14 +273,8 @@ class Application(tk.Tk):
         self.canvas.itemconfig(self.viewport, image=self.screenshot_area_tk, anchor='nw')
         self._draw_borders(x1, y1, x2, y2)
 
-    def _fix_viewport(self, corner, event):
-        x1 = event.x if 'w' in corner else self.x1
-        y1 = event.y if 'n' in corner else self.y1
-        x2 = event.x if 'e' in corner else self.x2
-        y2 = event.y if 's' in corner else self.y2
-
-        self.x2, self.x1 = (x1, x2) if x2 < x1 else (x2, x1)
-        self.y2, self.y1 = (y1, y2) if y2 < y1 else (y2, y1)
+    def _fix_viewport(self):
+        self.x1, self.y1, self.x2, self.y2 = self.canvas.coords(self.border)
 
     def _check_viewport_borders(self, x, y):
         x1 = x if x < self.canvas.bbox(self.viewport)[0] else self.canvas.bbox(self.viewport)[0]
@@ -295,10 +289,10 @@ class Application(tk.Tk):
             self.canvas.itemconfig(self.viewport, image=self.screenshot_area_tk, anchor='nw')
             self._draw_borders(x1, y1, x2, y2)
 
-    def _start_editing(self, event):
+    def _start_editing(self, _):
         if [self.x1, self.x2, self.y1, self.y2] == [None, None, None, None]:
             return
-        self._fix_viewport('se', event)
+        self.x1, self.y1, self.x2, self.y2 = self.canvas.coords(self.border)
         self.canvas.unbind('<B1-Motion>')
         self.canvas.unbind('<ButtonPress-1>')
         self.canvas.unbind('<ButtonRelease-1>')
@@ -366,8 +360,8 @@ class Application(tk.Tk):
 
         *_, x1, y1 = coords
         x2, y2 = event.x, event.y
-        dist = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-        if dist > 3:
+        distance = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+        if distance > 3:
             self._check_viewport_borders(x2, y2)
             coords.append(x2)
             coords.append(y2)
@@ -401,6 +395,34 @@ class Application(tk.Tk):
         self._check_viewport_borders(x2, y2)
         self.canvas.coords(self.line, x1, y1, x2, y2)
 
+    @staticmethod
+    def _points(x1, y1, x2, y2, radius=10):
+
+        x1, x2 = (x2, x1) if x2 < x1 else (x1, x2)
+        y1, y2 = (y2, y1) if y2 < y1 else (y1, y2)
+        radius = min(min((x2-x1)//2, radius), min((y2-y1)//2, radius))
+
+        return [x1 + radius, y1,
+                x1 + radius, y1,
+                x2 - radius, y1,
+                x2 - radius, y1,
+                x2, y1,
+                x2, y1 + radius,
+                x2, y1 + radius,
+                x2, y2 - radius,
+                x2, y2 - radius,
+                x2, y2,
+                x2 - radius, y2,
+                x2 - radius, y2,
+                x1 + radius, y2,
+                x1 + radius, y2,
+                x1, y2,
+                x1, y2 - radius,
+                x1, y2 - radius,
+                x1, y1 + radius,
+                x1, y1 + radius,
+                x1, y1]
+
     def _set_rect(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._rect_create(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._rect_move(e))
@@ -409,17 +431,16 @@ class Application(tk.Tk):
         self._set_selection(self.rect_button)
 
     def _rect_create(self, event):
-        self.rect = self.canvas.create_rectangle(event.x, event.y, event.x, event.y, tags=['editor', 'item'],
-                                                 outline=self.palette[self.color % self.colors], width=5)
+        self.rect = self.canvas.create_polygon(self._points(event.x, event.y, event.x, event.y), smooth=True,
+                                               tags=['editor', 'item'], outline=self.palette[self.color % self.colors],
+                                               fill='', width=5)
         self.canvas.tag_bind(self.rect, '<ButtonPress-3>', partial(self.canvas.delete, self.rect))
         self.rect_x = event.x
         self.rect_y = event.y
 
     def _rect_move(self, event):
-        x1, y1, *_ = self.canvas.coords(self.rect)
-        x2, y2 = event.x, event.y
-        self._check_viewport_borders(x2, y2)
-        self.canvas.coords(self.rect, self.rect_x, self.rect_y, x2, y2)
+        self._check_viewport_borders(event.x, event.y)
+        self.canvas.coords(self.rect, self._points(self.rect_x, self.rect_y, event.x, event.y))
 
     def _set_text(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._text_create(e))
@@ -437,16 +458,16 @@ class Application(tk.Tk):
         self.txt_tag = 0
         while self.canvas.find_withtag(f'txt{self.txt_tag}') != ():
             self.txt_tag += 1
-        self._create_txt_bg((event.x-5, event.y-15, event.x+5, event.y+15), 'white', 0.8)
-        self._check_viewport_borders(event.x-5, event.y-15)
+        self._create_txt_bg((event.x - 5, event.y - 15, event.x + 5, event.y + 15), 'white', 0.8)
+        self._check_viewport_borders(event.x - 5, event.y - 15)
         self._txt = self.canvas.create_text(self.txt_rect_x, self.txt_rect_y, anchor='nw',
                                             tags=['editor', f'txt{self.txt_tag}', 'item'])
         self.text_edit = True
-        self.txt_size = {'x': 0, 'y': 0}
+        self.txt_box = {'x': 0, 'y': 0}
         self.unbind('<Escape>')
 
     def _text_move(self, event):
-        x1, y1 = self.txt_rect_x-5, self.txt_rect_y-15
+        x1, y1 = self.txt_rect_x - 5, self.txt_rect_y - 15
         x2, y2 = event.x, event.y
         self._check_viewport_borders(x2, y2)
 
@@ -456,16 +477,16 @@ class Application(tk.Tk):
         del self.image_stack[-1]
         self._create_txt_bg((x1, y1, x2, y2), 'white', 0.8)
 
-        self.txt_size['x'] = x2
-        self.txt_size['y'] = y2
+        self.txt_box['x'] = x2
+        self.txt_box['y'] = y2
 
     def _create_txt_bg(self, bbox, color, alpha):
         x1, y1, x2, y2 = bbox
         alpha = int(alpha * 255)
         fill = self.winfo_rgb(color) + (alpha,)
-        self.txt_bg_image = Image.new('RGBA', (int(x2-x1), int(y2-y1)))
+        self.txt_bg_image = Image.new('RGBA', (int(x2 - x1), int(y2 - y1)))
         draw = ImageDraw.Draw(self.txt_bg_image)
-        draw.rounded_rectangle(((0, 0), (int(x2-x1), int(y2-y1))), 6, fill=fill, outline=fill)
+        draw.rounded_rectangle(((0, 0), (int(x2 - x1), int(y2 - y1))), 6, fill=fill, outline=fill)
         self.image_stack.append(ImageTk.PhotoImage(self.txt_bg_image))
         self.canvas.create_image(x1, y1, image=self.image_stack[-1], anchor='nw',
                                  tags=['editor', f'txt{self.txt_tag}', f'txt{self.txt_tag}_bg', 'item'])
@@ -475,16 +496,16 @@ class Application(tk.Tk):
         x, y, *_ = self.canvas.bbox(self._txt)
         if direction == 'Up':
             y -= step
-            self.txt_size['y'] -= step
+            self.txt_box['y'] -= step
         elif direction == 'Down':
             y += step
-            self.txt_size['y'] += step
+            self.txt_box['y'] += step
         elif direction == 'Left':
             x -= step
-            self.txt_size['x'] -= step
+            self.txt_box['x'] -= step
         elif direction == 'Right':
             x += step
-            self.txt_size['x'] += step
+            self.txt_box['x'] += step
         self.canvas.moveto(self._txt, x, y)
 
         x1, y1, x2, y2 = self.canvas.bbox(self._txt)
@@ -506,7 +527,7 @@ class Application(tk.Tk):
 
         self.canvas.itemconfig(self._txt, text=self.txt)
         bounds = self.canvas.bbox(self._txt)
-        bounds = (bounds[0], bounds[1], max(self.txt_size['x'], bounds[2]), max(self.txt_size['y'], bounds[3]))
+        bounds = (bounds[0], bounds[1], max(self.txt_box['x'], bounds[2]), max(self.txt_box['y'], bounds[3]))
         self._check_viewport_borders(bounds[2], bounds[3])
         del self.image_stack[-1]
         self._create_txt_bg(bounds, 'white', 0.8)
@@ -524,7 +545,7 @@ class Application(tk.Tk):
 
         self.canvas.itemconfig(self._txt, font=f'Helvetica {self.font_size} bold')
         bounds = self.canvas.bbox(self._txt)
-        bounds = (bounds[0], bounds[1], max(self.txt_size['x'], bounds[2]), max(self.txt_size['y'], bounds[3]))
+        bounds = (bounds[0], bounds[1], max(self.txt_box['x'], bounds[2]), max(self.txt_box['y'], bounds[3]))
         self._check_viewport_borders(bounds[2], bounds[3])
         del self.image_stack[-1]
         self._create_txt_bg(bounds, 'white', 0.8)
@@ -595,17 +616,21 @@ class Application(tk.Tk):
         tag = '_' + str(self.num)
         while self.canvas.find_withtag(tag) != ():
             tag = tag + '_' + str(self.num)
-        self.number_arrow = self.canvas.create_line(event.x, event.y, event.x, event.y,
+
+        r = 20
+        x = max(self.canvas.bbox(self.viewport)[0]+r, min(event.x, self.canvas.bbox(self.viewport)[2]-r))
+        y = max(self.canvas.bbox(self.viewport)[1]+r, min(event.y, self.canvas.bbox(self.viewport)[3]-r))
+
+        self.number_arrow = self.canvas.create_line(x, y, x, y,
                                                     fill=self.palette[self.color % self.colors],
                                                     arrow=tk.LAST,
                                                     tags=[tag, 'editor', 'item'])
-        r = 20
-        self.number_circle = self.canvas.create_oval(event.x - r, event.y - r, event.x + r, event.y + r,
+        self.number_circle = self.canvas.create_oval(x - r, y - r, x + r, y + r,
                                                      fill=self.palette[self.color % self.colors],
                                                      outline=self.palette[self.color % self.colors],
                                                      tags=[tag, 'editor', 'item'])
         text_color = 'darkgrey' if self.palette[self.color % self.colors] in ['white', 'yellow'] else 'white'
-        self.number_txt = self.canvas.create_text(event.x, event.y, text=self.num, fill=text_color,
+        self.number_txt = self.canvas.create_text(x, y, text=self.num, fill=text_color,
                                                   anchor='center', font='Helvetica 18 bold',
                                                   tags=[tag, 'editor', 'item'])
         self.canvas.tag_bind(tag, '<ButtonPress-3>', partial(self._number_delete, tag))
@@ -634,6 +659,7 @@ class Application(tk.Tk):
         elif self.num > 1:
             self.num -= 1
         self.num_button['text'] = self.num
+        self._set_number()
 
     def _change_color(self, event):
         self.color += 1 if event.delta > 0 else -1
@@ -676,7 +702,7 @@ class Notepad(tk.Tk):
         tk.Tk.__init__(self)
         self.title('SilentScreenShoter — Clipboard')
         self.after(1, lambda: self.text.focus_force())
-        self.geometry(f'{bbox[2]-bbox[0]}x{bbox[3]-bbox[1]}+{bbox[0]}+{bbox[1] - 22}')
+        self.geometry(f'{bbox[2] - bbox[0]}x{bbox[3] - bbox[1]}+{bbox[0]}+{bbox[1] - 22}')
         self.protocol('WM_DELETE_WINDOW', self._on_destroy)
         self.text = tk.Text(wrap='word', font='Consolas 11', undo=True)
         self.text.pack(side='top', fill='both', expand=True)
