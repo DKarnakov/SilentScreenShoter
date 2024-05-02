@@ -34,7 +34,6 @@ class Application(tk.Tk):
         self.x2 = self.y2 = None
 
         self.screenshot_area_tk = None
-        self.txt = ''
         self.screenshot_area = None
         self.viewport = None
         self.border = None
@@ -44,6 +43,7 @@ class Application(tk.Tk):
         self.num = 1
         self.point = {}
         self.image_stack = []
+        self.txt = ''
         self.text_edit = False
 
         self.panel = ttk.Frame(self.canvas)
@@ -193,6 +193,7 @@ class Application(tk.Tk):
         self.bind('<KeyRelease-Alt_L>', lambda e: self.canvas.itemconfig('precision', state='hidden'))
         self.bind('<KeyPress-Alt_R>', lambda e: self._precision())
         self.bind('<KeyRelease-Alt_R>', lambda e: self.canvas.itemconfig('precision', state='hidden'))
+        self.bind('<Alt-Button-1>', lambda e: self._add_color())
         self.bind('<Control-KeyPress>', lambda e: self._control(e))
 
     def _precision(self):
@@ -231,6 +232,14 @@ class Application(tk.Tk):
         self.canvas.coords(self.color_pick_bg, (x - 34, y - height_pick - 32 + 70, x + 36, y - 32 + 70))
         self.canvas.tag_raise('precision')
         self.canvas.tag_raise('z_33')
+
+    def _add_color(self):
+        color = self.canvas.itemcget('z_33', 'fill')
+        if color != '':
+            self.color = self.color % self.colors
+            self.palette.insert(self.color, color)
+            self.colors = len(self.palette)
+            self.color_panel['background'] = color
 
     def _set_viewport(self, event):
         x1, x2, y1, y2 = self.x1, event.x, self.y1, event.y
@@ -396,13 +405,14 @@ class Application(tk.Tk):
         self.canvas.coords(self.line, x1, y1, x2, y2)
 
     @staticmethod
-    def _points(x1, y1, x2, y2, radius=10):
+    def _points(x1, y1, x2, y2, radius=13):
 
         x1, x2 = (x2, x1) if x2 < x1 else (x1, x2)
         y1, y2 = (y2, y1) if y2 < y1 else (y1, y2)
         radius = min(min((x2-x1)//2, radius), min((y2-y1)//2, radius))
 
-        return [x1 + radius, y1,
+        return [x1, y1,
+                x1 + radius, y1,
                 x1 + radius, y1,
                 x2 - radius, y1,
                 x2 - radius, y1,
@@ -431,9 +441,9 @@ class Application(tk.Tk):
         self._set_selection(self.rect_button)
 
     def _rect_create(self, event):
-        self.rect = self.canvas.create_polygon(self._points(event.x, event.y, event.x, event.y), smooth=True,
-                                               tags=['editor', 'item'], outline=self.palette[self.color % self.colors],
-                                               fill='', width=5)
+        self.rect = self.canvas.create_line(self._points(event.x, event.y, event.x, event.y), smooth=True,
+                                            tags=['editor', 'item'], width=5,
+                                            fill=self.palette[self.color % self.colors])
         self.canvas.tag_bind(self.rect, '<ButtonPress-3>', partial(self.canvas.delete, self.rect))
         self.rect_x = event.x
         self.rect_y = event.y
