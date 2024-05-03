@@ -351,26 +351,45 @@ class Application(tk.Tk):
     def _set_pen(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._pen_create(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._pen_draw(e))
-        self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
+        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self._pen_control_abort())
         self.canvas.tag_unbind('editor', '<Shift-B1-Motion>')
         self._set_selection(self.pen_button)
 
+    def _pen_control_abort(self):
+        self.unbind('<KeyPress-Control_L>')
+        self.unbind('<KeyRelease-Control_L>')
+        self.unbind('<KeyPress-Control_R>')
+        self.unbind('<KeyRelease-Control_R>')
+
     def _pen_create(self, event):
-        self.pen = self.canvas.create_line(event.x, event.y, event.x, event.y, width=5, tags=['editor', 'item'])
+        self.coords = [event.x, event.y, event.x, event.y]
+        self.pen = self.canvas.create_line(self.coords, width=5, capstyle='round', tags=['editor', 'item'])
         self.canvas.tag_bind(self.pen, '<ButtonPress-3>', partial(self.canvas.delete, self.pen))
+        self.bind('<KeyPress-Control_L>', lambda e: self.canvas.coords(self.pen, self.coords[:2] + self.coords[-2:]))
+        self.bind('<KeyRelease-Control_L>', lambda e: self.canvas.coords(self.pen, self.coords))
+        self.bind('<KeyPress-Control_R>', lambda e: self.canvas.coords(self.pen, self.coords[:2] + self.coords[-2:]))
+        self.bind('<KeyRelease-Control_R>', lambda e: self.canvas.coords(self.pen, self.coords))
 
     def _pen_draw(self, event):
-        coords = self.canvas.coords(self.pen)
-
-        *_, x1, y1 = coords
         x2, y2 = event.x, event.y
+        *_, x1, y1 = self.coords
         distance = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
         if distance > 3:
-            self._check_viewport_borders(x2, y2)
-            coords.append(x2)
-            coords.append(y2)
-            self.canvas.coords(self.pen, coords)
-            self.canvas.itemconfig(self.pen, fill=self.color_panel['background'])
+            self.coords.append(x2)
+            self.coords.append(y2)
+            if event.state == 268:
+                self.canvas.coords(self.pen, self.coords[:2] + self.coords[-2:])
+            elif event.state == 269:
+                angle = pi / 8
+                alpha = (atan2(x2 - self.coords[0], y2 - self.coords[1]) + angle / 2) // angle * angle
+                length = sqrt((x2 - self.coords[0]) ** 2 + (y2 - self.coords[1]) ** 2)
+                x2 = int(self.coords[0] + length * sin(alpha))
+                y2 = int(self.coords[1] + length * cos(alpha))
+                self.canvas.coords(self.pen, self.coords[:2] + [x2, y2])
+            else:
+                self.canvas.coords(self.pen, self.coords)
+        self._check_viewport_borders(x2, y2)
+        self.canvas.itemconfig(self.pen, fill=self.color_panel['background'])
 
     def _set_line(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._line_create(e))
@@ -403,7 +422,7 @@ class Application(tk.Tk):
         self.canvas.itemconfig(self.line, fill=self.color_panel['background'])
 
     @staticmethod
-    def _points(x1, y1, x2, y2, radius=13):
+    def _round_rectangle(x1, y1, x2, y2, radius=13):
 
         x1, x2 = (x2, x1) if x2 < x1 else (x1, x2)
         y1, y2 = (y2, y1) if y2 < y1 else (y1, y2)
@@ -439,7 +458,7 @@ class Application(tk.Tk):
         self._set_selection(self.rect_button)
 
     def _rect_create(self, event):
-        self.rect = self.canvas.create_line(self._points(event.x, event.y, event.x, event.y), smooth=True,
+        self.rect = self.canvas.create_line(self._round_rectangle(event.x, event.y, event.x, event.y), smooth=True,
                                             tags=['editor', 'item'], width=5)
         self.canvas.tag_bind(self.rect, '<ButtonPress-3>', partial(self.canvas.delete, self.rect))
         self.rect_x = event.x
@@ -447,7 +466,7 @@ class Application(tk.Tk):
 
     def _rect_move(self, event):
         self._check_viewport_borders(event.x, event.y)
-        self.canvas.coords(self.rect, self._points(self.rect_x, self.rect_y, event.x, event.y))
+        self.canvas.coords(self.rect, self._round_rectangle(self.rect_x, self.rect_y, event.x, event.y))
         self.canvas.itemconfig(self.rect, fill=self.color_panel['background'])
 
     def _set_text(self):
