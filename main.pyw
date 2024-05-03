@@ -236,9 +236,6 @@ class Application(tk.Tk):
     def _add_color(self):
         color = self.canvas.itemcget('z_33', 'fill')
         if color != '':
-            self.color = self.color % self.colors
-            self.palette.insert(self.color, color)
-            self.colors = len(self.palette)
             self.color_panel['background'] = color
 
     def _set_viewport(self, event):
@@ -339,7 +336,6 @@ class Application(tk.Tk):
 
     def _arrow_create(self, event):
         self.arrow = self.canvas.create_line(event.x, event.y, event.x, event.y,
-                                             fill=self.palette[self.color % self.colors],
                                              width=5, tags=['editor', 'item'],
                                              arrowshape=(17, 25, 7), capstyle='round',
                                              arrow=tk.LAST)
@@ -350,7 +346,7 @@ class Application(tk.Tk):
         x2, y2 = event.x, event.y
         self._check_viewport_borders(x2, y2)
         self.canvas.coords(self.arrow, x1, y1, x2, y2)
-        self.canvas.itemconfig(self.arrow, fill=self.palette[self.color % self.colors])
+        self.canvas.itemconfig(self.arrow, fill=self.color_panel['background'])
 
     def _set_pen(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._pen_create(e))
@@ -360,9 +356,7 @@ class Application(tk.Tk):
         self._set_selection(self.pen_button)
 
     def _pen_create(self, event):
-        self.pen = self.canvas.create_line(event.x, event.y, event.x, event.y, width=5,
-                                           fill=self.palette[self.color % self.colors],
-                                           tags=['editor', 'item'])
+        self.pen = self.canvas.create_line(event.x, event.y, event.x, event.y, width=5, tags=['editor', 'item'])
         self.canvas.tag_bind(self.pen, '<ButtonPress-3>', partial(self.canvas.delete, self.pen))
 
     def _pen_draw(self, event):
@@ -376,7 +370,7 @@ class Application(tk.Tk):
             coords.append(x2)
             coords.append(y2)
             self.canvas.coords(self.pen, coords)
-            self.canvas.itemconfig(self.pen, fill=self.palette[self.color % self.colors])
+            self.canvas.itemconfig(self.pen, fill=self.color_panel['background'])
 
     def _set_line(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._line_create(e))
@@ -387,7 +381,7 @@ class Application(tk.Tk):
 
     def _line_create(self, event):
         self.line = self.canvas.create_line(event.x, event.y, event.x, event.y, tags=['editor', 'item'],
-                                            fill=self.palette[self.color % self.colors], width=5, capstyle='round')
+                                            width=5, capstyle='round')
         self.canvas.tag_bind(self.line, '<ButtonPress-3>', partial(self.canvas.delete, self.line))
 
     def _line_move(self, event):
@@ -395,7 +389,7 @@ class Application(tk.Tk):
         x2, y2 = event.x, event.y
         self._check_viewport_borders(x2, y2)
         self.canvas.coords(self.line, x1, y1, x2, y2)
-        self.canvas.itemconfig(self.line, fill=self.palette[self.color % self.colors])
+        self.canvas.itemconfig(self.line, fill=self.color_panel['background'])
 
     def _line_angle_move(self, angle, event):
         x1, y1, *_ = self.canvas.coords(self.line)
@@ -406,7 +400,7 @@ class Application(tk.Tk):
         y2 = int(y1 + length * cos(alpha))
         self._check_viewport_borders(x2, y2)
         self.canvas.coords(self.line, x1, y1, x2, y2)
-        self.canvas.itemconfig(self.line, fill=self.palette[self.color % self.colors])
+        self.canvas.itemconfig(self.line, fill=self.color_panel['background'])
 
     @staticmethod
     def _points(x1, y1, x2, y2, radius=13):
@@ -446,8 +440,7 @@ class Application(tk.Tk):
 
     def _rect_create(self, event):
         self.rect = self.canvas.create_line(self._points(event.x, event.y, event.x, event.y), smooth=True,
-                                            tags=['editor', 'item'], width=5,
-                                            fill=self.palette[self.color % self.colors])
+                                            tags=['editor', 'item'], width=5)
         self.canvas.tag_bind(self.rect, '<ButtonPress-3>', partial(self.canvas.delete, self.rect))
         self.rect_x = event.x
         self.rect_y = event.y
@@ -455,7 +448,7 @@ class Application(tk.Tk):
     def _rect_move(self, event):
         self._check_viewport_borders(event.x, event.y)
         self.canvas.coords(self.rect, self._points(self.rect_x, self.rect_y, event.x, event.y))
-        self.canvas.itemconfig(self.rect, fill=self.palette[self.color % self.colors])
+        self.canvas.itemconfig(self.rect, fill=self.color_panel['background'])
 
     def _set_text(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._text_create(e))
@@ -508,24 +501,22 @@ class Application(tk.Tk):
         self.canvas.tag_lower(f'txt{self.txt_tag}_bg', f'txt{self.txt_tag}')
 
     def _move_txt(self, direction, step=1):
-        x, y, *_ = self.canvas.bbox(self._txt)
-        if direction == 'Up':
-            y -= step
+        bounds = self.canvas.bbox(self._txt)
+        x1, y1, x2, y2 = (bounds[0], bounds[1], max(self.txt_box['x'], bounds[2]), max(self.txt_box['y'], bounds[3]))
+        if direction == 'Up' and y1 - step > 0:
+            y1 -= step
             self.txt_box['y'] -= step
-        elif direction == 'Down':
-            y += step
+        elif direction == 'Down' and y2 + step < self.winfo_height():
+            y1 += step
             self.txt_box['y'] += step
-        elif direction == 'Left':
-            x -= step
+        elif direction == 'Left' and x1 - step > 0:
+            x1 -= step
             self.txt_box['x'] -= step
-        elif direction == 'Right':
-            x += step
+        elif direction == 'Right' and x2 + step < self.winfo_width():
+            x1 += step
             self.txt_box['x'] += step
-        self.canvas.moveto(self._txt, x, y)
 
-        x1, y1, x2, y2 = self.canvas.bbox(self._txt)
-        self._check_viewport_borders(x1, y1)
-        self._check_viewport_borders(x2, y2)
+        self.canvas.moveto(self._txt, x1, y1)
 
     def _key_handler(self, event):
         if event.keysym == 'BackSpace':
@@ -543,6 +534,7 @@ class Application(tk.Tk):
         self.canvas.itemconfig(self._txt, text=self.txt)
         bounds = self.canvas.bbox(self._txt)
         bounds = (bounds[0], bounds[1], max(self.txt_box['x'], bounds[2]), max(self.txt_box['y'], bounds[3]))
+        self._check_viewport_borders(bounds[0], bounds[1])
         self._check_viewport_borders(bounds[2], bounds[3])
         del self.image_stack[-1]
         self._create_txt_bg(bounds, 'white', 0.8)
@@ -561,6 +553,7 @@ class Application(tk.Tk):
         self.canvas.itemconfig(self._txt, font=f'Helvetica {self.font_size} bold')
         bounds = self.canvas.bbox(self._txt)
         bounds = (bounds[0], bounds[1], max(self.txt_box['x'], bounds[2]), max(self.txt_box['y'], bounds[3]))
+        self._check_viewport_borders(bounds[0], bounds[1])
         self._check_viewport_borders(bounds[2], bounds[3])
         del self.image_stack[-1]
         self._create_txt_bg(bounds, 'white', 0.8)
@@ -569,7 +562,7 @@ class Application(tk.Tk):
         self.bind('<Key>', self._key_handler)
         self.bind('<Control-Key>', self._key_control_handler)
         self.txt = ''
-        text_color = self.palette[self.color % self.colors]
+        text_color = self.color_panel['background']
         self.font_size = 18
 
         self.txt_rect_x, self.txt_rect_y, *_ = self.canvas.bbox(f'txt{self.txt_tag}_bg')
