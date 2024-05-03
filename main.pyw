@@ -59,6 +59,14 @@ class Application(tk.Tk):
         done_txt = tk.StringVar(value='Ok')
         self.done_button = ttk.Button(self.panel, textvariable=done_txt, command=lambda: self._done())
 
+        self.bind('<F1>', lambda e: self._set_arrow())
+        self.bind('<F2>', lambda e: self._set_pen())
+        self.bind('<F3>', lambda e: self._set_line())
+        self.bind('<F4>', lambda e: self._set_rect())
+        self.bind('<F5>', lambda e: self._set_text())
+        self.bind('<F6>', lambda e: self._set_blur())
+        self.bind('<F7>', lambda e: self._set_number())
+
         self.bind('<KeyPress-Shift_L>', lambda e: done_txt.set('Сохранить'))
         self.bind('<KeyRelease-Shift_L>', lambda e: done_txt.set('Ok'))
         self.bind('<KeyPress-Shift_R>', lambda e: done_txt.set('Сохранить'))
@@ -351,11 +359,11 @@ class Application(tk.Tk):
     def _set_pen(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._pen_create(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._pen_draw(e))
-        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self._pen_control_abort())
+        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self._pen_control_stop())
         self.canvas.tag_unbind('editor', '<Shift-B1-Motion>')
         self._set_selection(self.pen_button)
 
-    def _pen_control_abort(self):
+    def _pen_control_stop(self):
         self.unbind('<KeyPress-Control_L>')
         self.unbind('<KeyRelease-Control_L>')
         self.unbind('<KeyPress-Control_R>')
@@ -565,7 +573,7 @@ class Application(tk.Tk):
         elif event.keycode in [109, 189]:
             self.font_size = self.font_size - 1 if self.font_size > 9 else 9
         elif event.keycode in [107, 187]:
-            self.font_size = self.font_size + 1 if self.font_size < 18 else 18
+            self.font_size = self.font_size + 1 if self.font_size < 25 else 25
         elif event.keysym in ['Up', 'Down', 'Left', 'Right']:
             self._move_txt(event.keysym, step=10)
 
@@ -648,15 +656,20 @@ class Application(tk.Tk):
         x = max(self.canvas.bbox(self.viewport)[0]+r, min(event.x, self.canvas.bbox(self.viewport)[2]-r))
         y = max(self.canvas.bbox(self.viewport)[1]+r, min(event.y, self.canvas.bbox(self.viewport)[3]-r))
 
+        color = self.canvas.itemcget('z_33', 'fill')
+        color = color if self.canvas.itemcget('z_33', 'state') != 'hidden' else self.color_panel['background']
+
         self.number_arrow = self.canvas.create_line(x, y, x, y,
-                                                    fill=self.palette[self.color % self.colors],
+                                                    fill=color,
                                                     arrow=tk.LAST,
                                                     tags=[tag, 'editor', 'item'])
         self.number_circle = self.canvas.create_oval(x - r, y - r, x + r, y + r,
-                                                     fill=self.palette[self.color % self.colors],
-                                                     outline=self.palette[self.color % self.colors],
+                                                     fill=color,
+                                                     outline=color,
                                                      tags=[tag, 'editor', 'item'])
-        text_color = 'darkgrey' if self.palette[self.color % self.colors] in ['white', 'yellow'] else 'white'
+        red, green, blue = self.winfo_rgb(color)
+        luminance = red/257 * 0.2126 + green/257 * 0.7152 + blue/257 * 0.0722
+        text_color = 'black' if luminance > 140 else 'white'
         self.number_txt = self.canvas.create_text(x, y, text=self.num, fill=text_color,
                                                   anchor='center', font='Helvetica 18 bold',
                                                   tags=[tag, 'editor', 'item'])
@@ -668,7 +681,9 @@ class Application(tk.Tk):
         self._check_viewport_borders(x2, y2)
 
         length = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-        self.canvas.itemconfig(self.number_arrow, arrowshape=(length, length, 20))
+        self.canvas.itemconfig(self.number_arrow, arrowshape=(length, length, 20), fill=self.color_panel['background'])
+        self.canvas.itemconfig(self.number_circle, fill=self.color_panel['background'],
+                               outline=self.color_panel['background'])
         self.canvas.coords(self.number_arrow, x1, y1, x2, y2)
 
     def _number_set(self):
