@@ -395,7 +395,9 @@ class Application(tk.Tk):
         points = []
         for point in range(len(self.coords) // 2):
             points.append((float(self.coords[point * 2]), float(self.coords[(point * 2) + 1])))
-        tolerance = 15.0
+        height = self.canvas.bbox(self.pen)[3] - self.canvas.bbox(self.pen)[1]
+        width = self.canvas.bbox(self.pen)[2] - self.canvas.bbox(self.pen)[0]
+        tolerance = max(height, width) / 10
         shape = self._simplify_points(points, tolerance=tolerance)
         corners = len(shape)
         if corners == 2:  # line
@@ -423,12 +425,8 @@ class Application(tk.Tk):
             shape = points
         self.canvas.coords(self.pen, shape)
 
-        x1 = min([point[0] for point in shape])
-        y1 = min([point[1] for point in shape])
-        x2 = max([point[0] for point in shape])
-        y2 = max([point[1] for point in shape])
-        self._check_viewport_borders(x1, y1)
-        self._check_viewport_borders(x2, y2)
+        self._check_viewport_borders(self.canvas.bbox(self.pen)[0], self.canvas.bbox(self.pen)[1])
+        self._check_viewport_borders(self.canvas.bbox(self.pen)[2], self.canvas.bbox(self.pen)[3])
 
     @staticmethod
     def _simplify_points(pts, tolerance):
