@@ -346,6 +346,7 @@ class Application(tk.Tk):
         self.arrow = self.canvas.create_line(event.x, event.y, event.x, event.y,
                                              width=5, tags=['editor', 'item'],
                                              arrowshape=(17, 25, 7), capstyle='round',
+                                             fill=self.color_panel['background'],
                                              arrow=tk.LAST)
         self.canvas.tag_bind(self.arrow, '<ButtonPress-3>', partial(self.canvas.delete, self.arrow))
 
@@ -371,7 +372,8 @@ class Application(tk.Tk):
 
     def _pen_create(self, event):
         self.coords = [event.x, event.y, event.x, event.y]
-        self.pen = self.canvas.create_line(self.coords, width=5, capstyle='round', tags=['editor', 'item'])
+        self.pen = self.canvas.create_line(self.coords, width=5, capstyle='round',
+                                           fill=self.color_panel['background'], tags=['editor', 'item'])
         self.canvas.tag_bind(self.pen, '<ButtonPress-3>', partial(self.canvas.delete, self.pen))
         self.bind('<KeyPress-Control_L>', lambda e: self._pen_recognise())
         self.bind('<KeyRelease-Control_L>', lambda e: self.canvas.coords(self.pen, self.coords))
@@ -487,6 +489,7 @@ class Application(tk.Tk):
 
     def _line_create(self, event):
         self.line = self.canvas.create_line(event.x, event.y, event.x, event.y, tags=['editor', 'item'],
+                                            fill=self.color_panel['background'],
                                             width=5, capstyle='round')
         self.canvas.tag_bind(self.line, '<ButtonPress-3>', partial(self.canvas.delete, self.line))
 
@@ -546,7 +549,7 @@ class Application(tk.Tk):
 
     def _rect_create(self, event):
         self.rect = self.canvas.create_line(self._round_rectangle(event.x, event.y, event.x, event.y), smooth=True,
-                                            tags=['editor', 'item'], width=5)
+                                            fill=self.color_panel['background'], tags=['editor', 'item'], width=5)
         self.canvas.tag_bind(self.rect, '<ButtonPress-3>', partial(self.canvas.delete, self.rect))
         self.rect_x = event.x
         self.rect_y = event.y
@@ -575,6 +578,7 @@ class Application(tk.Tk):
         self._create_txt_bg((event.x - 5, event.y - 15, event.x + 5, event.y + 15), 'white', 0.8)
         self._check_viewport_borders(event.x - 5, event.y - 15)
         self._txt = self.canvas.create_text(self.txt_rect_x, self.txt_rect_y, anchor='nw',
+                                            fill=self.color_panel['background'],
                                             tags=['editor', f'txt{self.txt_tag}', 'item'])
         self.text_edit = True
         self.txt_box = {'x': 0, 'y': 0}
