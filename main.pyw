@@ -4,7 +4,7 @@ from tkinter import ttk, filedialog
 import pytesseract
 from io import BytesIO
 import win32clipboard
-from math import sqrt, atan2, pi, sin, cos
+from math import sqrt, atan2, pi, sin, cos, dist
 import ctypes
 from functools import partial
 from pynput import mouse
@@ -373,9 +373,9 @@ class Application(tk.Tk):
         self.coords = [event.x, event.y, event.x, event.y]
         self.pen = self.canvas.create_line(self.coords, width=5, capstyle='round', tags=['editor', 'item'])
         self.canvas.tag_bind(self.pen, '<ButtonPress-3>', partial(self.canvas.delete, self.pen))
-        self.bind('<KeyPress-Control_L>', lambda e: self.canvas.coords(self.pen, self.coords[:2] + self.coords[-2:]))
+        self.bind('<KeyPress-Control_L>', lambda e: self._pen_recognise())
         self.bind('<KeyRelease-Control_L>', lambda e: self.canvas.coords(self.pen, self.coords))
-        self.bind('<KeyPress-Control_R>', lambda e: self.canvas.coords(self.pen, self.coords[:2] + self.coords[-2:]))
+        self.bind('<KeyPress-Control_R>', lambda e: self._pen_recognise())
         self.bind('<KeyRelease-Control_R>', lambda e: self.canvas.coords(self.pen, self.coords))
 
     def _pen_draw(self, event):
@@ -385,19 +385,98 @@ class Application(tk.Tk):
         if distance > 3:
             self.coords.append(x2)
             self.coords.append(y2)
-            if event.state == 268:
-                self.canvas.coords(self.pen, self.coords[:2] + self.coords[-2:])
-            elif event.state == 269:
-                angle = pi / 8
-                alpha = (atan2(x2 - self.coords[0], y2 - self.coords[1]) + angle / 2) // angle * angle
-                length = sqrt((x2 - self.coords[0]) ** 2 + (y2 - self.coords[1]) ** 2)
-                x2 = int(self.coords[0] + length * sin(alpha))
-                y2 = int(self.coords[1] + length * cos(alpha))
-                self.canvas.coords(self.pen, self.coords[:2] + [x2, y2])
-            else:
-                self.canvas.coords(self.pen, self.coords)
+            self.canvas.coords(self.pen, self.coords)
         self._check_viewport_borders(x2, y2)
         self.canvas.itemconfig(self.pen, fill=self.color_panel['background'])
+
+    def _pen_recognise(self):
+        points = []
+        for point in range(len(self.coords) // 2):
+            points.append((float(self.coords[point * 2]), float(self.coords[(point * 2) + 1])))
+        tolerance = 15.0
+        shape = self._simplify_points(points, tolerance=tolerance)
+        corners = len(shape)
+        if corners == 2:  # line
+            pass
+        elif dist(shape[0], shape[-1]) < tolerance * 2:
+            corners -= 1
+            if corners == 3:  # triangle
+                shape[-1] = shape[0]
+            elif corners == 4:  # rectangle
+                x1 = min([point[0] for point in points])
+                y1 = min([point[1] for point in points])
+                x2 = max([point[0] for point in points])
+                y2 = max([point[1] for point in points])
+                shape = [(x1, y1), (x2, y1), (x2, y2), (x1, y2), (x1, y1)]
+            else:  # circle
+                x = sum([point[0] for point in points]) / len(points)
+                y = sum([point[1] for point in points]) / len(points)
+                r = sum([dist((x, y), point) for point in points]) / len(points)
+                shape = []
+                for angle in range(50+1):
+                    xc = int(x + r * sin(pi * 2 / 50 * angle))
+                    yc = int(y + r * cos(pi * 2 / 50 * angle))
+                    shape.append((xc, yc))
+        else:  # something else
+            shape = points
+        self.canvas.coords(self.pen, shape)
+
+        x1 = min([point[0] for point in shape])
+        y1 = min([point[1] for point in shape])
+        x2 = max([point[0] for point in shape])
+        y2 = max([point[1] for point in shape])
+        self._check_viewport_borders(x1, y1)
+        self._check_viewport_borders(x2, y2)
+
+    @staticmethod
+    def _simplify_points(pts, tolerance):
+        anchor = 0
+        floater = len(pts) - 1
+        stack = []
+        keep = set()
+
+        stack.append((anchor, floater))
+        while stack:
+            anchor, floater = stack.pop()
+
+            if pts[floater] != pts[anchor]:
+                anchor_x = float(pts[floater][0] - pts[anchor][0])
+                anchor_y = float(pts[floater][1] - pts[anchor][1])
+                seg_len = sqrt(anchor_x ** 2 + anchor_y ** 2)
+                anchor_x /= seg_len
+                anchor_y /= seg_len
+            else:
+                anchor_x = anchor_y = 0.0
+
+            max_dist = 0.0
+            farthest = anchor + 1
+            for i in range(anchor + 1, floater):
+                vec_x = float(pts[i][0] - pts[anchor][0])
+                vec_y = float(pts[i][1] - pts[anchor][1])
+                proj = vec_x * anchor_x + vec_y * anchor_y
+                if proj >= 0.0:
+                    vec_x = float(pts[i][0] - pts[floater][0])
+                    vec_y = float(pts[i][1] - pts[floater][1])
+                    seg_len = sqrt(vec_x ** 2 + vec_y ** 2)
+                    proj = vec_x * (-anchor_x) + vec_y * (-anchor_y)
+                    if proj < 0.0:
+                        dist_to_seg = seg_len
+                    else:
+                        dist_to_seg = sqrt(abs(seg_len ** 2 - proj ** 2))
+                    if max_dist < dist_to_seg:
+                        max_dist = dist_to_seg
+                        farthest = i
+
+            if max_dist <= tolerance:
+                keep.add(anchor)
+                keep.add(floater)
+            else:
+                stack.append((anchor, farthest))
+                stack.append((farthest, floater))
+
+        keep = list(keep)
+        keep.sort()
+        return [pts[i] for i in keep]
 
     def _set_line(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._line_create(e))
