@@ -406,21 +406,24 @@ class Application(tk.Tk):
             corners -= 1
             if corners == 3:  # triangle
                 shape[-1] = shape[0]
-            elif corners == 4:  # rectangle
+            elif corners in [4, 5]:  # rectangle (incl. mistake)
                 x1 = min([point[0] for point in points])
                 y1 = min([point[1] for point in points])
                 x2 = max([point[0] for point in points])
                 y2 = max([point[1] for point in points])
                 shape = [(x1, y1), (x2, y1), (x2, y2), (x1, y2), (x1, y1)]
-            else:  # circle
-                x = sum([point[0] for point in points]) / len(points)
-                y = sum([point[1] for point in points]) / len(points)
-                r = sum([dist((x, y), point) for point in points]) / len(points)
+            else:  # ellipse
+                x1 = min([point[0] for point in points])
+                y1 = min([point[1] for point in points])
+                x2 = max([point[0] for point in points])
+                y2 = max([point[1] for point in points])
+                r1 = (x2 - x1) / 2
+                r2 = (y2 - y1) / 2
                 shape = []
-                for angle in range(50+1):
-                    xc = int(x + r * sin(pi * 2 / 50 * angle))
-                    yc = int(y + r * cos(pi * 2 / 50 * angle))
-                    shape.append((xc, yc))
+                for angle in range(60+1):
+                    x = int((x2 + x1) / 2 + r1 * sin(pi * 2 / 60 * angle))
+                    y = int((y2 + y1) / 2 + r2 * cos(pi * 2 / 60 * angle))
+                    shape.append((x, y))
         else:  # something else
             shape = points
         self.canvas.coords(self.pen, shape)
