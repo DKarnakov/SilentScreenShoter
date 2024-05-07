@@ -189,7 +189,7 @@ class Application(tk.Tk):
         self.canvas.itemconfig('z_33', width=3)
 
         self.color_pick = self.canvas.create_text(0, 0, anchor='sw', text='#000000',
-                                                  font='Helvetica 11 bold',
+                                                  font='Helvetica 10 bold',
                                                   tags=['service', 'precision'])
         self.color_pick_bg = self.canvas.create_rectangle(self.canvas.bbox(self.viewport_size),
                                                           tags=['service', 'precision'])
@@ -691,7 +691,7 @@ class Application(tk.Tk):
 
     def _text_stop(self):
         self.unbind('<Key>')
-        self.unbind('<Control-Key>')
+        self.bind('<Control-KeyPress>', lambda e: self._control(e))
         self.bind('<Escape>', lambda e: self.destroy())
         if self.txt == '':
             self.canvas.delete(f'txt{self.txt_tag}')
