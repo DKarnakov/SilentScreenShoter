@@ -250,7 +250,7 @@ class Application(tk.Tk):
         x1, x2, y1, y2 = self.x1, event.x, self.y1, event.y
 
         anchor = 's' if y2 < y1 else 'n'
-        anchor = anchor + 'e' if x2 < x1 else anchor + 'w'
+        anchor += 'e' if x2 < x1 else 'w'
 
         x2, x1 = (x1, x2) if x2 < x1 else (x2, x1)
         y2, y1 = (y1, y2) if y2 < y1 else (y2, y1)
@@ -721,7 +721,7 @@ class Application(tk.Tk):
         self._check_viewport_borders(x2, y2)
 
         anchor = 's' if y2 < y1 else 'n'
-        anchor = anchor + 'e' if x2 < x1 else anchor + 'w'
+        anchor += 'e' if x2 < x1 else 'w'
 
         x2, x1 = (x1, x2) if x2 < x1 else (x2, x1)
         y2, y1 = (y1, y2) if y2 < y1 else (y2, y1)
