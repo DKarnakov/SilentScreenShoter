@@ -1,6 +1,6 @@
 from PIL import ImageGrab, ImageTk, ImageEnhance, ImageFilter, Image, ImageDraw
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, font
 import pytesseract
 from io import BytesIO
 import win32clipboard
@@ -45,6 +45,7 @@ class Application(tk.Tk):
         self.image_stack = []
         self.txt = ''
         self.text_edit = False
+        self.font_size = 18
 
         self.panel = ttk.Frame(self.canvas)
         self.arrow_button = ttk.Button(self.panel, text='Стрелка', command=lambda: self._set_arrow())
@@ -582,8 +583,10 @@ class Application(tk.Tk):
         self.txt_tag = 0
         while self.canvas.find_withtag(f'txt{self.txt_tag}') != ():
             self.txt_tag += 1
-        self._create_txt_bg((event.x - 5, event.y - 15, event.x + 5, event.y + 15), 'white', 0.8)
-        self._check_viewport_borders(event.x - 5, event.y - 15)
+        height = font.Font(font=f'Helvetica {self.font_size} bold').metrics('linespace') // 2
+        self._create_txt_bg((event.x - 5, event.y - height, event.x + 5, event.y + height), 'white', 0.8)
+        self._check_viewport_borders(event.x - 5, event.y - height)
+        self._check_viewport_borders(event.x + 5, event.y + height)
         self._txt = self.canvas.create_text(self.txt_rect_x, self.txt_rect_y, anchor='nw',
                                             fill=self.color_panel['background'],
                                             tags=['editor', f'txt{self.txt_tag}', 'item'])
@@ -592,7 +595,8 @@ class Application(tk.Tk):
         self.unbind('<Escape>')
 
     def _text_move(self, event):
-        x1, y1 = self.txt_rect_x - 5, self.txt_rect_y - 15
+        height = font.Font(font=f'Helvetica {self.font_size} bold').metrics('linespace') // 2
+        x1, y1 = self.txt_rect_x - 5, self.txt_rect_y - height
         x2, y2 = event.x, event.y
         self._check_viewport_borders(x2, y2)
 
@@ -680,7 +684,6 @@ class Application(tk.Tk):
         self.bind('<Control-Key>', self._key_control_handler)
         self.txt = ''
         text_color = self.color_panel['background']
-        self.font_size = 18
 
         self.txt_rect_x, self.txt_rect_y, *_ = self.canvas.bbox(f'txt{self.txt_tag}_bg')
         self.canvas.coords(self._txt, self.txt_rect_x, self.txt_rect_y)
