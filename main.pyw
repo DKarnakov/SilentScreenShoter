@@ -41,7 +41,7 @@ class Application(tk.Tk):
         self.colors = len(self.palette)
         self.color = 0
         self.num = 1
-        self.point = {}
+        self.corner = {}
         self.image_stack = []
         self.txt = ''
         self.text_edit = False
@@ -86,15 +86,15 @@ class Application(tk.Tk):
         self.canvas.create_image(0, 0, anchor='nw', image=self.background_tk)
 
     def _create_corner(self, position, x, y, cursor):
-        self.point[position] = self.canvas.create_rectangle(x - 4, y - 4, x + 4, y + 4, width=2,
-                                                            outline='lightgrey', fill='black', tags='service')
-        self.canvas.tag_bind(self.point[position], '<Enter>', lambda e: self.canvas.config(cursor=cursor))
-        self.canvas.tag_bind(self.point[position], '<Leave>', lambda e: self.canvas.config(cursor=''))
-        self.canvas.tag_bind(self.point[position], '<B1-Motion>', lambda e: self._change_viewport(position, e))
-        self.canvas.tag_bind(self.point[position], '<ButtonRelease-1>', lambda e: self._fix_viewport())
+        self.corner[position] = self.canvas.create_rectangle(x - 4, y - 4, x + 4, y + 4, width=2,
+                                                             outline='lightgrey', fill='black', tags='service')
+        self.canvas.tag_bind(self.corner[position], '<Enter>', lambda e: self.canvas.config(cursor=cursor))
+        self.canvas.tag_bind(self.corner[position], '<Leave>', lambda e: self.canvas.config(cursor=''))
+        self.canvas.tag_bind(self.corner[position], '<B1-Motion>', lambda e: self._change_viewport(position, e))
+        self.canvas.tag_bind(self.corner[position], '<ButtonRelease-1>', lambda e: self._fix_viewport())
 
     def _move_corner(self, position, x, y):
-        self.canvas.moveto(self.point[position], x - 5, y - 5)
+        self.canvas.moveto(self.corner[position], x - 5, y - 5)
 
     def _draw_borders(self, x1, y1, x2, y2):
         self.canvas.coords(self.border, (x1, y1, x2, y2))
@@ -497,7 +497,7 @@ class Application(tk.Tk):
             self.coords += [event.x, event.y]
             self.ruler = self.canvas.create_line(self.coords, tags='ruler', dash=(10, 5),
                                                  width=2,
-                                                 arrowshape=(14, 14, 4),
+                                                 arrowshape=(15, 15, 4),
                                                  arrow=tk.BOTH,
                                                  fill='grey50', capstyle='round')
             self.ruler_size = self.canvas.create_text(event.x, event.y,
