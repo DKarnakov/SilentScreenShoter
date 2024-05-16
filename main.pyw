@@ -46,11 +46,13 @@ class Application(tk.Tk):
         self.txt = ''
         self.text_edit = False
         self.font_size = 18
+        self.ruler_scale = 1.0
 
         self.panel = ttk.Frame(self.canvas)
         self.arrow_button = ttk.Button(self.panel, text='Стрелка', command=lambda: self._set_arrow())
         self.pen_button = ttk.Button(self.panel, text='Карандаш', command=lambda: self._set_pen())
         self.line_button = ttk.Button(self.panel, text='Линия', command=lambda: self._set_line())
+        self.ruler_button = ttk.Button(self.panel, text='Рулетка', command=lambda: self._set_ruler())
         self.rect_button = ttk.Button(self.panel, text='Рамка', command=lambda: self._set_rect())
         self.text_button = ttk.Button(self.panel, text='Надпись', command=lambda: self._set_text())
         self.blur_button = ttk.Button(self.panel, text='Размытие', command=lambda: self._set_blur())
@@ -63,10 +65,11 @@ class Application(tk.Tk):
         self.bind('<F1>', lambda e: self._set_arrow())
         self.bind('<F2>', lambda e: self._set_pen())
         self.bind('<F3>', lambda e: self._set_line())
-        self.bind('<F4>', lambda e: self._set_rect())
-        self.bind('<F5>', lambda e: self._set_text())
-        self.bind('<F6>', lambda e: self._set_blur())
-        self.bind('<F7>', lambda e: self._set_number())
+        self.bind('<F4>', lambda e: self._set_ruler())
+        self.bind('<F5>', lambda e: self._set_rect())
+        self.bind('<F6>', lambda e: self._set_text())
+        self.bind('<F7>', lambda e: self._set_blur())
+        self.bind('<F8>', lambda e: self._set_number())
 
         self.bind('<KeyPress-Shift_L>', lambda e: done_txt.set('Сохранить'))
         self.bind('<KeyRelease-Shift_L>', lambda e: done_txt.set('Ok'))
@@ -317,15 +320,16 @@ class Application(tk.Tk):
         self.arrow_button.grid(padx=3, pady=3, column=0, row=1)
         self.pen_button.grid(padx=3, pady=3, column=1, row=1)
         self.line_button.grid(padx=3, pady=3, column=2, row=1)
-        self.rect_button.grid(padx=3, pady=3, column=3, row=1)
-        self.text_button.grid(padx=3, pady=3, column=4, row=1)
-        self.blur_button.grid(padx=3, pady=3, column=5, row=1)
+        self.ruler_button.grid(padx=3, pady=3, column=3, row=1)
+        self.rect_button.grid(padx=3, pady=3, column=4, row=1)
+        self.text_button.grid(padx=3, pady=3, column=5, row=1)
+        self.blur_button.grid(padx=3, pady=3, column=6, row=1)
         self.num_button.bind('<MouseWheel>', lambda e: self._change_number(e))
-        self.num_button.grid(padx=3, pady=3, column=6, row=1)
+        self.num_button.grid(padx=3, pady=3, column=7, row=1)
         self.color_panel.bind('<MouseWheel>', lambda e: self._change_color(e))
-        self.color_panel.grid(padx=3, pady=3, column=7, row=1)
-        self.recognize_button.grid(padx=3, pady=3, column=8, row=1)
-        self.done_button.grid(padx=3, pady=3, column=9, row=1)
+        self.color_panel.grid(padx=3, pady=3, column=8, row=1)
+        self.recognize_button.grid(padx=3, pady=3, column=9, row=1)
+        self.done_button.grid(padx=3, pady=3, column=10, row=1)
 
         self._set_arrow()
 
@@ -481,6 +485,94 @@ class Application(tk.Tk):
         keep = list(keep)
         keep.sort()
         return [pts[i] for i in keep]
+
+    def _set_ruler(self):
+        self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._new_item(e))
+        self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._ruler_move(e))
+        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self._ruler_stop())
+        self._set_selection(self.ruler_button)
+
+    def _ruler_move(self, event):
+        if len(self.coords) == 2:
+            self.coords += [event.x, event.y]
+            self.ruler = self.canvas.create_line(self.coords, tags='ruler', dash=(10, 5),
+                                                 width=2,
+                                                 arrowshape=(7, 15, 5),
+                                                 arrow=tk.BOTH,
+                                                 fill='darkgrey', capstyle='round')
+            self.ruler_size = self.canvas.create_text(event.x, event.y,
+                                                      font='Helvetica 10 bold',
+                                                      fill='grey',
+                                                      tags='ruler')
+            self.ruler_size_bg = self.canvas.create_rectangle(self.canvas.bbox(self.ruler_size),
+                                                              fill='white', outline='grey',
+                                                              tags='ruler')
+            self.canvas.tag_raise(self.ruler_size)
+            self.ruler_txt = ''
+            self.bind('<Key>', self._ruler_scale)
+        else:
+            self.coords = self.coords[:2] + [event.x, event.y]
+            self._check_viewport_borders(event.x, event.y)
+            self.canvas.coords(self.ruler, self.coords)
+            length = dist(self.coords[2:], self.coords[:2])
+            if self.canvas.itemcget(self.ruler_size_bg, 'fill') == 'blue':
+                try:
+                    true_len = int(self.ruler_txt)
+                    self.ruler_scale = true_len / length
+                except ValueError:
+                    self.ruler_scale = 1.0
+                self.ruler_txt = ''
+
+            self.canvas.itemconfigure(self.ruler_size, text=f'{int(length * self.ruler_scale)}', fill='darkgrey')
+            self.canvas.itemconfigure(self.ruler_size_bg, fill='white')
+            bbox = self.canvas.bbox(self.ruler_size)
+            x = (self.coords[2] + self.coords[0]) // 2 - (bbox[2] - bbox[0]) // 2
+            y = (self.coords[3] + self.coords[1]) // 2 - (bbox[3] - bbox[1]) // 2
+            self.canvas.moveto(self.ruler_size, x, y)
+            self.canvas.coords(self.ruler_size_bg, self.offset_bbox(bbox, 3))
+
+    def _ruler_scale(self, event):
+        if event.char in '0123456789':
+            self.ruler_txt += event.char
+        elif event.keysym == 'BackSpace':
+            self.ruler_txt = self.ruler_txt[:-1]
+        elif event.keysym == 'Return':
+            length = dist(self.coords[2:], self.coords[:2])
+            try:
+                true_len = int(self.ruler_txt)
+                self.ruler_scale = true_len / length
+            except ValueError:
+                self.ruler_scale = 1.0
+            self.ruler_txt = ''
+            self.canvas.itemconfigure(self.ruler_size, text=f'{int(length * self.ruler_scale)}', fill='darkgrey')
+            self.canvas.itemconfigure(self.ruler_size_bg, fill='white')
+            bbox = self.canvas.bbox(self.ruler_size)
+            x = (self.coords[2] + self.coords[0]) // 2 - (bbox[2] - bbox[0]) // 2
+            y = (self.coords[3] + self.coords[1]) // 2 - (bbox[3] - bbox[1]) // 2
+            self.canvas.moveto(self.ruler_size, x, y)
+            self.canvas.coords(self.ruler_size_bg, self.offset_bbox(bbox, 3))
+            return
+        else:
+            return
+        self.canvas.itemconfigure(self.ruler_size, text=self.ruler_txt, fill='white')
+        self.canvas.itemconfigure(self.ruler_size_bg, fill='blue')
+        bbox = self.canvas.bbox(self.ruler_size)
+        x = (self.coords[2] + self.coords[0]) // 2 - (bbox[2] - bbox[0]) // 2
+        y = (self.coords[3] + self.coords[1]) // 2 - (bbox[3] - bbox[1]) // 2
+        self.canvas.moveto(self.ruler_size, x, y)
+        self.canvas.coords(self.ruler_size_bg, self.offset_bbox(bbox, 3))
+
+    def _ruler_stop(self):
+        self.canvas.delete('ruler')
+        self.unbind('<Key>')
+
+    @staticmethod
+    def offset_bbox(bbox, offset):
+        x1, y1, x2, y2 = bbox
+        return [x1 - offset,
+                y1 - offset,
+                x2 + offset,
+                y2 + offset]
 
     def _set_line(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._new_item(e))
