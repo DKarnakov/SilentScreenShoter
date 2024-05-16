@@ -497,15 +497,15 @@ class Application(tk.Tk):
             self.coords += [event.x, event.y]
             self.ruler = self.canvas.create_line(self.coords, tags='ruler', dash=(10, 5),
                                                  width=2,
-                                                 arrowshape=(7, 15, 5),
+                                                 arrowshape=(14, 14, 4),
                                                  arrow=tk.BOTH,
-                                                 fill='darkgrey', capstyle='round')
+                                                 fill='grey50', capstyle='round')
             self.ruler_size = self.canvas.create_text(event.x, event.y,
                                                       font='Helvetica 10 bold',
-                                                      fill='grey',
+                                                      fill='grey50',
                                                       tags='ruler')
             self.ruler_size_bg = self.canvas.create_rectangle(self.canvas.bbox(self.ruler_size),
-                                                              fill='white', outline='grey',
+                                                              fill='white', outline='grey50',
                                                               tags='ruler')
             self.canvas.tag_raise(self.ruler_size)
             self.ruler_txt = ''
@@ -523,7 +523,7 @@ class Application(tk.Tk):
                     self.ruler_scale = 1.0
                 self.ruler_txt = ''
 
-            self.canvas.itemconfigure(self.ruler_size, text=f'{int(length * self.ruler_scale)}', fill='darkgrey')
+            self.canvas.itemconfigure(self.ruler_size, text=f'{int(length * self.ruler_scale)}', fill='grey50')
             self.canvas.itemconfigure(self.ruler_size_bg, fill='white')
             bbox = self.canvas.bbox(self.ruler_size)
             x = (self.coords[2] + self.coords[0]) // 2 - (bbox[2] - bbox[0]) // 2
@@ -544,7 +544,7 @@ class Application(tk.Tk):
             except ValueError:
                 self.ruler_scale = 1.0
             self.ruler_txt = ''
-            self.canvas.itemconfigure(self.ruler_size, text=f'{int(length * self.ruler_scale)}', fill='darkgrey')
+            self.canvas.itemconfigure(self.ruler_size, text=f'{int(length * self.ruler_scale)}', fill='grey50')
             self.canvas.itemconfigure(self.ruler_size_bg, fill='white')
             bbox = self.canvas.bbox(self.ruler_size)
             x = (self.coords[2] + self.coords[0]) // 2 - (bbox[2] - bbox[0]) // 2
