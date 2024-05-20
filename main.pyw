@@ -522,14 +522,15 @@ class Application(tk.Tk):
                 except ValueError:
                     self.ruler_scale = 1.0
                 self.ruler_txt = ''
+            self._draw_ruler_size(int(length * self.ruler_scale), 'grey50', 'white')
 
-            self.canvas.itemconfigure(self.ruler_size, text=f'{int(length * self.ruler_scale)}', fill='grey50')
-            self.canvas.itemconfigure(self.ruler_size_bg, fill='white')
-            bbox = self.canvas.bbox(self.ruler_size)
-            x = (self.coords[2] + self.coords[0]) // 2 - (bbox[2] - bbox[0]) // 2
-            y = (self.coords[3] + self.coords[1]) // 2 - (bbox[3] - bbox[1]) // 2
-            self.canvas.moveto(self.ruler_size, x, y)
-            self.canvas.coords(self.ruler_size_bg, self.offset_bbox(bbox, 3))
+    def _draw_ruler_size(self, text, text_color, bg_color):
+        self.canvas.itemconfigure(self.ruler_size, text=text, fill=text_color)
+        self.canvas.itemconfigure(self.ruler_size_bg, fill=bg_color)
+        x = (self.coords[2] + self.coords[0]) // 2
+        y = (self.coords[3] + self.coords[1]) // 2
+        self.canvas.coords(self.ruler_size, x, y)
+        self.canvas.coords(self.ruler_size_bg, self.offset_bbox(self.canvas.bbox(self.ruler_size), 3))
 
     def _ruler_scale(self, event):
         if event.char in '0123456789':
@@ -544,23 +545,11 @@ class Application(tk.Tk):
             except ValueError:
                 self.ruler_scale = 1.0
             self.ruler_txt = ''
-            self.canvas.itemconfigure(self.ruler_size, text=f'{int(length * self.ruler_scale)}', fill='grey50')
-            self.canvas.itemconfigure(self.ruler_size_bg, fill='white')
-            bbox = self.canvas.bbox(self.ruler_size)
-            x = (self.coords[2] + self.coords[0]) // 2 - (bbox[2] - bbox[0]) // 2
-            y = (self.coords[3] + self.coords[1]) // 2 - (bbox[3] - bbox[1]) // 2
-            self.canvas.moveto(self.ruler_size, x, y)
-            self.canvas.coords(self.ruler_size_bg, self.offset_bbox(bbox, 3))
+            self._draw_ruler_size(int(length * self.ruler_scale), 'grey50', 'white')
             return
         else:
             return
-        self.canvas.itemconfigure(self.ruler_size, text=self.ruler_txt, fill='white')
-        self.canvas.itemconfigure(self.ruler_size_bg, fill='blue')
-        bbox = self.canvas.bbox(self.ruler_size)
-        x = (self.coords[2] + self.coords[0]) // 2 - (bbox[2] - bbox[0]) // 2
-        y = (self.coords[3] + self.coords[1]) // 2 - (bbox[3] - bbox[1]) // 2
-        self.canvas.moveto(self.ruler_size, x, y)
-        self.canvas.coords(self.ruler_size_bg, self.offset_bbox(bbox, 3))
+        self._draw_ruler_size(self.ruler_txt, 'white', 'blue')
 
     def _ruler_stop(self):
         self.canvas.delete('ruler')
