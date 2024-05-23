@@ -681,6 +681,7 @@ class Application(tk.Tk):
         self.text = self.canvas.create_text(x, y, anchor='nw',
                                             text=self.txt, font=f'Helvetica {self.font_size} bold',
                                             fill=self.color_panel['background'],
+                                            width=self.winfo_width() - x,
                                             tags=['editor', f'txt{self.txt_tag}', 'item'])
         self.text_cursor = self.canvas.create_text(x, y, anchor='nw',
                                                    text='|', font=f'Helvetica {self.font_size} bold',
@@ -734,6 +735,7 @@ class Application(tk.Tk):
             self.coords[2] += step
 
         self.canvas.moveto(self.text, x1, y1)
+        self.canvas.itemconfig(self.text, width=self.winfo_width() - x1)
         self.coords[0] = x1
         self.coords[1] = y1
 
