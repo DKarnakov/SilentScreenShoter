@@ -20,7 +20,6 @@ class Application(tk.Tk):
 
         self.attributes('-fullscreen', True)
         self.attributes('-topmost', True)
-        self.after(500, lambda: self.focus_force())
 
         self.canvas = tk.Canvas(self, cursor='cross', highlightthickness=0)
         self.canvas.pack(side='top', fill='both', expand=True)
@@ -45,6 +44,8 @@ class Application(tk.Tk):
         self.image_stack = []
         self.txt = ''
         self.text_edit = False
+        self.cursor_visible = False
+        self.is_blinking = None
         self.font_size = 18
         self.ruler_scale = 1.0
 
@@ -56,7 +57,6 @@ class Application(tk.Tk):
         self.text_button = ttk.Button(self.panel, text='Надпись', command=lambda: self._set_text())
         self.num_button = ttk.Button(self.panel, text=self.num, command=lambda: self._set_number())
         self.blur_button = ttk.Button(self.panel, text='Размытие', command=lambda: self._set_blur())
-        self.ruler_button = ttk.Button(self.panel, text='Измерить', command=lambda: self._set_ruler())
         self.color_panel = ttk.Label(self.panel, width=3, background=self.palette[self.color % self.colors])
         self.recognize_button = ttk.Button(self.panel, text='Распознать', command=lambda: self._recognize())
         done_txt = tk.StringVar(value='Ok')
@@ -69,7 +69,6 @@ class Application(tk.Tk):
         self.bind('<F5>', lambda e: self._set_text())
         self.bind('<F6>', lambda e: self._set_number())
         self.bind('<F7>', lambda e: self._set_blur())
-        self.bind('<F8>', lambda e: self._set_ruler())
 
         self.bind('<KeyPress-Shift_L>', lambda e: done_txt.set('Сохранить'))
         self.bind('<KeyRelease-Shift_L>', lambda e: done_txt.set('Ok'))
@@ -84,6 +83,8 @@ class Application(tk.Tk):
 
         self.background_tk = ImageTk.PhotoImage(background)
         self.canvas.create_image(0, 0, anchor='nw', image=self.background_tk)
+
+        self.focus_set()
 
     def _create_corner(self, position, x, y, cursor):
         self.corner[position] = self.canvas.create_rectangle(x - 4, y - 4, x + 4, y + 4, width=2,
@@ -208,6 +209,10 @@ class Application(tk.Tk):
         self.bind('<Alt-Button-1>', lambda e: self._add_color())
         self.bind('<Control-KeyPress>', lambda e: self._control(e))
 
+        self.canvas.tag_bind('editor', '<ButtonPress-2>', lambda e: self._new_item(e))
+        self.canvas.tag_bind('editor', '<B2-Motion>', lambda e: self._ruler_move(e))
+        self.canvas.tag_bind('editor', '<ButtonRelease-2>', lambda e: self._ruler_stop())
+
     def _precision(self):
         x1, y1, x2, y2 = self.canvas.bbox(self.viewport)
         self.canvas.itemconfig('precision', state='normal')
@@ -325,11 +330,10 @@ class Application(tk.Tk):
         self.num_button.bind('<MouseWheel>', lambda e: self._change_number(e))
         self.num_button.grid(padx=3, pady=3, column=5, row=1)
         self.blur_button.grid(padx=3, pady=3, column=6, row=1)
-        self.ruler_button.grid(padx=3, pady=3, column=7, row=1)
         self.color_panel.bind('<MouseWheel>', lambda e: self._change_color(e))
-        self.color_panel.grid(padx=3, pady=3, column=8, row=1)
-        self.recognize_button.grid(padx=3, pady=3, column=9, row=1)
-        self.done_button.grid(padx=3, pady=3, column=10, row=1)
+        self.color_panel.grid(padx=3, pady=3, column=7, row=1)
+        self.recognize_button.grid(padx=3, pady=3, column=8, row=1)
+        self.done_button.grid(padx=3, pady=3, column=9, row=1)
 
         self._set_arrow()
 
@@ -486,12 +490,6 @@ class Application(tk.Tk):
         keep.sort()
         return [pts[i] for i in keep]
 
-    def _set_ruler(self):
-        self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._new_item(e))
-        self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._ruler_move(e))
-        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self._ruler_stop())
-        self._set_selection(self.ruler_button)
-
     def _ruler_move(self, event):
         if len(self.coords) == 2:
             self.coords += [event.x, event.y]
@@ -530,7 +528,7 @@ class Application(tk.Tk):
         x = (self.coords[2] + self.coords[0]) // 2
         y = (self.coords[3] + self.coords[1]) // 2
         self.canvas.coords(self.ruler_size, x, y)
-        self.canvas.coords(self.ruler_size_bg, self.offset_bbox(self.canvas.bbox(self.ruler_size), 3))
+        self.canvas.coords(self.ruler_size_bg, self._offset_bbox(self.canvas.bbox(self.ruler_size), 3))
 
     def _ruler_scale(self, event):
         if event.char in '0123456789':
@@ -556,7 +554,7 @@ class Application(tk.Tk):
         self.unbind('<Key>')
 
     @staticmethod
-    def offset_bbox(bbox, offset):
+    def _offset_bbox(bbox, offset):
         x1, y1, x2, y2 = bbox
         return [x1 - offset,
                 y1 - offset,
@@ -650,8 +648,8 @@ class Application(tk.Tk):
 
     def _set_text(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._text_create(e))
-        self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._text_move(e))
-        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self._text_start())
+        self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._text_resize_bg(e))
+        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self._text_start(e))
         self.canvas.tag_unbind('editor', '<Shift-B1-Motion>')
         self._set_selection(self.text_button)
 
@@ -659,25 +657,42 @@ class Application(tk.Tk):
         if self.text_edit:
             self._text_stop()
 
-        self.txt_rect_x = event.x
-        self.txt_rect_y = event.y
         self.txt_tag = 0
         while self.canvas.find_withtag(f'txt{self.txt_tag}') != ():
             self.txt_tag += 1
         height = font.Font(font=f'Helvetica {self.font_size} bold').metrics('linespace') // 2
-        self._create_txt_bg((event.x - 5, event.y - height, event.x + 5, event.y + height), 'white', 0.8)
-        self._check_viewport_borders(event.x - 5, event.y - height)
-        self._check_viewport_borders(event.x + 5, event.y + height)
-        self._txt = self.canvas.create_text(self.txt_rect_x, self.txt_rect_y, anchor='nw',
-                                            fill=self.color_panel['background'],
-                                            tags=['editor', f'txt{self.txt_tag}', 'item'])
-        self.text_edit = True
-        self.txt_box = {'x': 0, 'y': 0}
+        width = font.Font(font=f'Helvetica {self.font_size} bold').measure('|')
+        self._create_txt_bg(self._offset_bbox((event.x, event.y - height, event.x + width, event.y + height), 3),
+                            'white', 0.8)
+        self._check_viewport_borders(event.x - 3, event.y - height)
+        self._check_viewport_borders(event.x + 3, event.y + height)
+        self.coords = [event.x, event.y, 0, 0]
         self.unbind('<Escape>')
 
-    def _text_move(self, event):
+    def _text_start(self, event):
+        self.bind('<Key>', self._key_handler)
+        self.bind('<Control-Key>', self._key_control_handler)
+        self.bind('<Control-MouseWheel>', lambda e: self._mouse_control_wheel_handler(e))
+        self.txt = ''
         height = font.Font(font=f'Helvetica {self.font_size} bold').metrics('linespace') // 2
-        x1, y1 = self.txt_rect_x - 5, self.txt_rect_y - height
+        self.coords[1] -= height if self.coords[2:] == [0, 0] else 0
+        x = min(self.coords[0], event.x)
+        y = min(self.coords[1], event.y)
+        self.text = self.canvas.create_text(x, y, anchor='nw',
+                                            text=self.txt, font=f'Helvetica {self.font_size} bold',
+                                            fill=self.color_panel['background'],
+                                            tags=['editor', f'txt{self.txt_tag}', 'item'])
+        self.text_cursor = self.canvas.create_text(x, y, anchor='nw',
+                                                   text='|', font=f'Helvetica {self.font_size} bold',
+                                                   fill='grey50', tags=f'txt{self.txt_tag}')
+        self.coords = [x, y, max(self.coords[0], self.coords[2]), max(self.coords[1], self.coords[3])]
+        self.canvas.tag_bind(f'txt{self.txt_tag}', '<ButtonPress-3>',
+                             partial(self.canvas.delete, f'txt{self.txt_tag}'))
+        self.text_edit = True
+        self._blink_cursor()
+
+    def _text_resize_bg(self, event):
+        x1, y1 = self.coords[:2]
         x2, y2 = event.x, event.y
         self._check_viewport_borders(x2, y2)
 
@@ -685,10 +700,10 @@ class Application(tk.Tk):
         y2, y1 = (y1, y2) if y2 < y1 else (y2, y1)
 
         del self.image_stack[-1]
-        self._create_txt_bg((x1, y1, x2, y2), 'white', 0.8)
+        self._create_txt_bg(self._offset_bbox((x1, y1, x2, y2), 3), 'white', 0.8)
 
-        self.txt_box['x'] = x2
-        self.txt_box['y'] = y2
+        self.coords[2] = x2
+        self.coords[3] = y2
 
     def _create_txt_bg(self, bbox, color, alpha):
         x1, y1, x2, y2 = bbox
@@ -703,22 +718,51 @@ class Application(tk.Tk):
         self.canvas.tag_lower(f'txt{self.txt_tag}_bg', f'txt{self.txt_tag}')
 
     def _move_txt(self, direction, step=1):
-        bounds = self.canvas.bbox(self._txt)
-        x1, y1, x2, y2 = (bounds[0], bounds[1], max(self.txt_box['x'], bounds[2]), max(self.txt_box['y'], bounds[3]))
+        bounds = self.canvas.bbox(self.text)
+        x1, y1, x2, y2 = (bounds[0], bounds[1], max(self.coords[2], bounds[2]), max(self.coords[3], bounds[3]))
         if direction == 'Up' and y1 - step > 0:
             y1 -= step
-            self.txt_box['y'] -= step
+            self.coords[3] -= step
         elif direction == 'Down' and y2 + step < self.winfo_height():
             y1 += step
-            self.txt_box['y'] += step
+            self.coords[3] += step
         elif direction == 'Left' and x1 - step > 0:
             x1 -= step
-            self.txt_box['x'] -= step
+            self.coords[2] -= step
         elif direction == 'Right' and x2 + step < self.winfo_width():
             x1 += step
-            self.txt_box['x'] += step
+            self.coords[2] += step
 
-        self.canvas.moveto(self._txt, x1, y1)
+        self.canvas.moveto(self.text, x1, y1)
+        self.coords[0] = x1
+        self.coords[1] = y1
+
+    def _update_cursor_position(self):
+        lines = len(self.txt.split('\n')) - 1
+        line_height = font.Font(font=f'Helvetica {self.font_size} bold').metrics('linespace')
+        text_before_cursor = self.txt.split('\n')[-1]
+        line_width = font.Font(font=f'Helvetica {self.font_size} bold').measure(text_before_cursor)
+        x = self.coords[0] + line_width
+        y = self.coords[1] + line_height * lines
+        self.canvas.coords(self.text_cursor, x, y)
+        self.canvas.itemconfig(self.text_cursor, font=f'Helvetica {self.font_size} bold')
+
+    def _blink_cursor(self):
+        if self.text_edit:
+            self.cursor_visible = not self.cursor_visible
+            self.canvas.itemconfigure(self.text_cursor, state='normal' if self.cursor_visible else 'hidden')
+            self.is_blinking = self.after(500, self._blink_cursor)
+        else:
+            self.after_cancel(self.is_blinking)
+
+    def _redraw_text(self):
+        bounds = self.canvas.bbox(self.text)
+        bounds = (bounds[0], bounds[1], max(self.coords[2], bounds[2]), max(self.coords[3], bounds[3]))
+        self._check_viewport_borders(bounds[0] - 3, bounds[1] - 3)
+        self._check_viewport_borders(bounds[2] + 3, bounds[3] + 3)
+        del self.image_stack[-1]
+        self._create_txt_bg(self._offset_bbox(bounds, 3), 'white', 0.8)
+        self._update_cursor_position()
 
     def _key_handler(self, event):
         if event.keysym == 'BackSpace':
@@ -730,16 +774,13 @@ class Application(tk.Tk):
             return
         elif event.keysym in ['Up', 'Down', 'Left', 'Right']:
             self._move_txt(event.keysym)
+        elif event.keysym == 'Return':
+            self.txt += '\n'
         else:
             self.txt = self.txt + event.char
 
-        self.canvas.itemconfig(self._txt, text=self.txt)
-        bounds = self.canvas.bbox(self._txt)
-        bounds = (bounds[0], bounds[1], max(self.txt_box['x'], bounds[2]), max(self.txt_box['y'], bounds[3]))
-        self._check_viewport_borders(bounds[0], bounds[1])
-        self._check_viewport_borders(bounds[2], bounds[3])
-        del self.image_stack[-1]
-        self._create_txt_bg(bounds, 'white', 0.8)
+        self.canvas.itemconfig(self.text, text=self.txt)
+        self._redraw_text()
 
     def _key_control_handler(self, event):
         if event.keysym == 'Return':
@@ -752,34 +793,26 @@ class Application(tk.Tk):
         elif event.keysym in ['Up', 'Down', 'Left', 'Right']:
             self._move_txt(event.keysym, step=10)
 
-        self.canvas.itemconfig(self._txt, font=f'Helvetica {self.font_size} bold')
-        bounds = self.canvas.bbox(self._txt)
-        bounds = (bounds[0], bounds[1], max(self.txt_box['x'], bounds[2]), max(self.txt_box['y'], bounds[3]))
-        self._check_viewport_borders(bounds[0], bounds[1])
-        self._check_viewport_borders(bounds[2], bounds[3])
-        del self.image_stack[-1]
-        self._create_txt_bg(bounds, 'white', 0.8)
+        self.canvas.itemconfig(self.text, font=f'Helvetica {self.font_size} bold')
+        self._redraw_text()
 
-    def _text_start(self):
-        self.bind('<Key>', self._key_handler)
-        self.bind('<Control-Key>', self._key_control_handler)
-        self.txt = ''
-        text_color = self.color_panel['background']
-
-        self.txt_rect_x, self.txt_rect_y, *_ = self.canvas.bbox(f'txt{self.txt_tag}_bg')
-        self.canvas.coords(self._txt, self.txt_rect_x, self.txt_rect_y)
-
-        self.canvas.itemconfig(self._txt, text=self.txt, fill=text_color, font=f'Helvetica {self.font_size} bold')
-        self.canvas.tag_bind(f'txt{self.txt_tag}', '<ButtonPress-3>',
-                             partial(self.canvas.delete, f'txt{self.txt_tag}'))
+    def _mouse_control_wheel_handler(self, event):
+        self.font_size = min(self.font_size + 1, 25) if event.delta > 0 else max(self.font_size - 1, 9)
+        self.canvas.itemconfig(self.text, font=f'Helvetica {self.font_size} bold')
+        self._redraw_text()
 
     def _text_stop(self):
         self.unbind('<Key>')
+        self.unbind('<Control-MouseWheel>')
         self.bind('<Control-KeyPress>', lambda e: self._control(e))
         self.bind('<Escape>', lambda e: self.destroy())
         if self.txt == '':
             self.canvas.delete(f'txt{self.txt_tag}')
         self.text_edit = False
+        try:
+            self.canvas.delete(self.text_cursor)
+        except AttributeError:
+            ...
 
     def _set_blur(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._blur_create(e))
@@ -789,18 +822,17 @@ class Application(tk.Tk):
         self._set_selection(self.blur_button)
 
     def _blur_create(self, event):
-        x1, y1, x2, y2 = event.x, event.y, event.x, event.y
+        self.coords = event.x, event.y
 
-        blur_area = self.blur_image.crop((x1, y1, x2, y2))
+        blur_area = self.blur_image.crop(self.coords * 2)
         self.image_stack.append(ImageTk.PhotoImage(blur_area))
-        self.blur = self.canvas.create_image(x1, y1, anchor='nw', image=self.image_stack[-1], tags=['editor', 'item'])
+        self.blur = self.canvas.create_image(event.x, event.y, anchor='nw', image=self.image_stack[-1],
+                                             tags=['editor', 'item'])
         self.canvas.tag_raise(self.blur, self.viewport)
-        self.blur_x = x1
-        self.blur_y = y1
         self.canvas.tag_bind(self.blur, '<ButtonPress-3>', partial(self.canvas.delete, self.blur))
 
     def _blur_move(self, event):
-        x1, y1 = self.blur_x, self.blur_y
+        x1, y1 = self.coords
         x2, y2 = event.x, event.y
         self._check_viewport_borders(x2, y2)
 
@@ -881,7 +913,7 @@ class Application(tk.Tk):
         self.color += 1 if event.delta > 0 else -1
         self.color_panel['background'] = self.palette[self.color % self.colors]
         if self.text_edit:
-            self.canvas.itemconfig(self._txt, fill=self.palette[self.color % self.colors])
+            self.canvas.itemconfig(self.text, fill=self.palette[self.color % self.colors])
 
     def _recognize(self):
         txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6')
