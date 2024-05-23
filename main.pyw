@@ -665,7 +665,7 @@ class Application(tk.Tk):
         self._create_txt_bg(self._offset_bbox((event.x, event.y - height, event.x + width, event.y + height), 3),
                             'white', 0.8)
         self._check_viewport_borders(event.x - 3, event.y - height)
-        self._check_viewport_borders(event.x + 3, event.y + height)
+        self._check_viewport_borders(event.x + width + 3, event.y + height)
         self.coords = [event.x, event.y, 0, 0]
         self.unbind('<Escape>')
 
