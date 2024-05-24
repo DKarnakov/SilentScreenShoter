@@ -741,9 +741,13 @@ class Application(tk.Tk):
 
     def _update_cursor_position(self):
         lines = len(self.txt.split('\n')) - 1
-        line_height = font.Font(font=f'Helvetica {self.font_size} bold').metrics('linespace')
+        max_width = int(self.canvas.itemcget(self.text, 'width'))
+        for line in self.txt.split('\n'):
+            add_line = font.Font(font=f'Helvetica {self.font_size} bold').measure(line) // max_width
+            lines += add_line
         text_before_cursor = self.txt.split('\n')[-1]
         line_width = font.Font(font=f'Helvetica {self.font_size} bold').measure(text_before_cursor)
+        line_height = font.Font(font=f'Helvetica {self.font_size} bold').metrics('linespace')
         x = self.coords[0] + line_width
         y = self.coords[1] + line_height * lines
         self.canvas.coords(self.text_cursor, x, y)
