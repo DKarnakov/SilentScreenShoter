@@ -75,7 +75,7 @@ class Application(tk.Tk):
         self.bind('<KeyPress-Shift_R>', lambda e: done_txt.set('Сохранить'))
         self.bind('<KeyRelease-Shift_R>', lambda e: done_txt.set('Ok'))
 
-        self.image = ImageGrab.grab()
+        self.image = ImageGrab.grab(all_screens=True)
         self.blur_image = self.image.filter(ImageFilter.GaussianBlur(5))
 
         background = self.image.convert('L')
@@ -1008,8 +1008,7 @@ def launcher(_, __, button, pressed):
         STATUS = not STATUS if ctypes.windll.user32.MessageBoxW(0, action, header, 0x00040004) == 6 else STATUS
     elif all([STATUS, LM_BUTTON, RM_BUTTON]):
         APPLICATION_IS_RUNNING = True
-        app = Application()
-        app.mainloop()
+        Application().mainloop()
         APPLICATION_IS_RUNNING = False
 
 
