@@ -166,13 +166,13 @@ class Application(tk.Tk):
                                                    width=2, dash=50, outline='lightgrey',
                                                    tags='service')
         cursors = {'nw': 'top_left_corner',
-                   'n':  'top_side',
+                   'n': 'top_side',
                    'ne': 'top_right_corner',
-                   'e':  'right_side',
+                   'e': 'right_side',
                    'se': 'bottom_right_corner',
-                   's':  'bottom_side',
+                   's': 'bottom_side',
                    'sw': 'bottom_left_corner',
-                   'w':  'left_side'}
+                   'w': 'left_side'}
         for corner in cursors:
             self._create_corner(corner, x1, y1, cursors[corner])
 
@@ -350,7 +350,7 @@ class Application(tk.Tk):
     def _set_arrow(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._new_item(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._arrow_move(e))
-        self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
+        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self.canvas.unbind('<MouseWheel>'))
         self.canvas.tag_unbind('editor', '<Shift-B1-Motion>')
         self._set_selection(self.arrow_button)
 
@@ -363,10 +363,21 @@ class Application(tk.Tk):
                                                  fill=self.color_panel['background'],
                                                  arrow=tk.LAST)
             self.canvas.tag_bind(self.arrow, '<ButtonPress-3>', partial(self.canvas.delete, self.arrow))
+            self.canvas.bind('<MouseWheel>', lambda e: self._arrow_change(e))
         else:
             self.coords = self.coords[:2] + [event.x, event.y]
             self._check_viewport_borders(event.x, event.y)
             self.canvas.coords(self.arrow, self.coords)
+
+    def _arrow_change(self, event):
+        arrows = [tk.FIRST, tk.LAST, tk.BOTH]
+        current_arrow = arrows.index(self.canvas.itemcget(self.arrow, 'arrow'))
+        if event.delta > 0:
+            current_arrow = current_arrow + 1 if current_arrow < 2 else 0
+        else:
+            current_arrow = current_arrow - 1 if current_arrow > 0 else 2
+        if event.state == 264:  # Button 1 pressed
+            self.canvas.itemconfigure(self.arrow, arrow=arrows[current_arrow])
 
     def _set_pen(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._new_item(e))
@@ -429,7 +440,7 @@ class Application(tk.Tk):
                 r1 = (x2 - x1) / 2
                 r2 = (y2 - y1) / 2
                 shape = []
-                for angle in range(60+1):
+                for angle in range(60 + 1):
                     x = int((x2 + x1) / 2 + r1 * sin(pi * 2 / 60 * angle))
                     y = int((y2 + y1) / 2 + r2 * cos(pi * 2 / 60 * angle))
                     shape.append((x, y))
@@ -604,7 +615,7 @@ class Application(tk.Tk):
 
         x1, x2 = (x2, x1) if x2 < x1 else (x1, x2)
         y1, y2 = (y2, y1) if y2 < y1 else (y1, y2)
-        radius = min((x2-x1)//2, (y2-y1)//2, radius)
+        radius = min((x2 - x1) // 2, (y2 - y1) // 2, radius)
 
         return [x1, y1,
                 x1 + radius, y1,
@@ -865,8 +876,8 @@ class Application(tk.Tk):
             tag = tag + '_' + str(self.num)
 
         r = 20
-        x = max(self.canvas.bbox(self.viewport)[0]+r, min(event.x, self.canvas.bbox(self.viewport)[2]-r))
-        y = max(self.canvas.bbox(self.viewport)[1]+r, min(event.y, self.canvas.bbox(self.viewport)[3]-r))
+        x = max(self.canvas.bbox(self.viewport)[0] + r, min(event.x, self.canvas.bbox(self.viewport)[2] - r))
+        y = max(self.canvas.bbox(self.viewport)[1] + r, min(event.y, self.canvas.bbox(self.viewport)[3] - r))
 
         color = self.canvas.itemcget('z_33', 'fill')
         color = color if self.canvas.itemcget('z_33', 'state') != 'hidden' else self.color_panel['background']
@@ -880,7 +891,7 @@ class Application(tk.Tk):
                                                      outline=color,
                                                      tags=[tag, 'editor', 'item'])
         red, green, blue = self.winfo_rgb(color)
-        luminance = red/257 * 0.2126 + green/257 * 0.7152 + blue/257 * 0.0722
+        luminance = red / 257 * 0.2126 + green / 257 * 0.7152 + blue / 257 * 0.0722
         text_color = 'black' if luminance > 140 else 'white'
         self.number_txt = self.canvas.create_text(x, y, text=self.num, fill=text_color,
                                                   anchor='center', font='Helvetica 18 bold',
