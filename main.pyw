@@ -391,6 +391,7 @@ class Application(tk.Tk):
         self.unbind('<KeyRelease-Control_L>')
         self.unbind('<KeyPress-Control_R>')
         self.unbind('<KeyRelease-Control_R>')
+        self.canvas.unbind('<MouseWheel>')
 
     def _pen_draw(self, event):
         if len(self.coords) == 2:
@@ -402,6 +403,7 @@ class Application(tk.Tk):
             self.bind('<KeyRelease-Control_L>', lambda e: self.canvas.coords(self.pen, self.coords))
             self.bind('<KeyPress-Control_R>', lambda e: self._pen_recognise())
             self.bind('<KeyRelease-Control_R>', lambda e: self.canvas.coords(self.pen, self.coords))
+            self.canvas.bind('<MouseWheel>', lambda e: self._pen_width_change(e))
         else:
             x1, y1 = self.coords[:2]
             x2, y2 = event.x, event.y
@@ -410,6 +412,12 @@ class Application(tk.Tk):
                 self.coords += [event.x, event.y]
                 self.canvas.coords(self.pen, self.coords)
             self._check_viewport_borders(x2, y2)
+
+    def _pen_width_change(self, event):
+        pen_width = float(self.canvas.itemcget(self.pen, 'width'))
+        pen_width -= 1 if event.delta < 0 and pen_width >= 1 else -1
+        if event.state in [264, 268]:  # Button 1 (or Ctrl+Button1) pressed
+            self.canvas.itemconfigure(self.pen, width=pen_width)
 
     def _pen_recognise(self):
         points = []
@@ -644,18 +652,29 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._rect_move(e))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
         self.canvas.tag_unbind('editor', '<Shift-B1-Motion>')
+        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self.canvas.unbind('<MouseWheel>'))
         self._set_selection(self.rect_button)
 
     def _rect_move(self, event):
         if len(self.coords) == 2:
             self.coords += [event.x, event.y]
+            self.rect_corner = 13
             self.rect = self.canvas.create_line(self._round_rectangle(self.coords), smooth=True,
                                                 fill=self.color_panel['background'], tags=['editor', 'item'], width=5)
             self.canvas.tag_bind(self.rect, '<ButtonPress-3>', partial(self.canvas.delete, self.rect))
+            self.canvas.bind('<MouseWheel>', lambda e: self._rect_corner_change(e))
         else:
             self.coords = self.coords[:2] + [event.x, event.y]
             self._check_viewport_borders(event.x, event.y)
-            self.canvas.coords(self.rect, self._round_rectangle(self.coords))
+            self.canvas.coords(self.rect, self._round_rectangle(self.coords, self.rect_corner))
+
+    def _rect_corner_change(self, event):
+        if event.delta < 0 and self.rect_corner >= 1:
+            self.rect_corner -= 1 * ((self.rect_corner // 10) + 1)
+        else:
+            self.rect_corner += 1 * ((self.rect_corner // 10) + 1)
+        if event.state == 264:  # Button 1 pressed
+            self.canvas.coords(self.rect, self._round_rectangle(self.coords, self.rect_corner))
 
     def _set_text(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._text_create(e))
