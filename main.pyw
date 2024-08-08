@@ -371,13 +371,9 @@ class Application(tk.Tk):
 
     def _arrow_change(self, event):
         arrows = [tk.FIRST, tk.LAST, tk.BOTH]
-        current_arrow = arrows.index(self.canvas.itemcget(self.arrow, 'arrow'))
-        if event.delta > 0:
-            current_arrow = current_arrow + 1 if current_arrow < 2 else 0
-        else:
-            current_arrow = current_arrow - 1 if current_arrow > 0 else 2
-        if event.state == 264:  # Button 1 pressed
-            self.canvas.itemconfigure(self.arrow, arrow=arrows[current_arrow])
+        arrow = arrows.index(self.canvas.itemcget(self.arrow, 'arrow'))
+        arrow += 1 if event.delta > 0 else -1
+        self.canvas.itemconfigure(self.arrow, arrow=arrows[arrow % 3])
 
     def _set_pen(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._new_item(e))
