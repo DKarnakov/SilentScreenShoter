@@ -412,8 +412,7 @@ class Application(tk.Tk):
     def _pen_width_change(self, event):
         pen_width = float(self.canvas.itemcget(self.pen, 'width'))
         pen_width -= 1 if event.delta < 0 and pen_width >= 1 else -1
-        if event.state in [264, 268]:  # Button 1 (or Ctrl+Button1) pressed
-            self.canvas.itemconfigure(self.pen, width=pen_width)
+        self.canvas.itemconfigure(self.pen, width=pen_width)
 
     def _pen_recognise(self):
         points = []
@@ -669,8 +668,7 @@ class Application(tk.Tk):
             self.rect_corner -= 1 * ((self.rect_corner // 10) + 1)
         else:
             self.rect_corner += 1 * ((self.rect_corner // 10) + 1)
-        if event.state == 264:  # Button 1 pressed
-            self.canvas.coords(self.rect, self._round_rectangle(self.coords, self.rect_corner))
+        self.canvas.coords(self.rect, self._round_rectangle(self.coords, self.rect_corner))
 
     def _set_text(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._text_create(e))
