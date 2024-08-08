@@ -580,7 +580,14 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._line_move(e))
         self.canvas.tag_bind('editor', '<Shift-B1-Motion>', lambda e: self._line_angle_move(pi / 8, e))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
+        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self.canvas.unbind('<MouseWheel>'))
         self._set_selection(self.line_button)
+
+    def _line_change(self, event):
+        dashes = ['', '255', '1', '1 1 1 1', '1 1 1']
+        dash = dashes.index(self.canvas.itemcget(self.line, 'dash'))
+        dash += 1 if event.delta > 0 else -1
+        self.canvas.itemconfigure(self.line, dash=dashes[dash % 5])
 
     def _line_move(self, event):
         if len(self.coords) == 2:
@@ -589,6 +596,7 @@ class Application(tk.Tk):
                                                 fill=self.color_panel['background'],
                                                 width=5, capstyle='round')
             self.canvas.tag_bind(self.line, '<ButtonPress-3>', partial(self.canvas.delete, self.line))
+            self.canvas.bind('<MouseWheel>', lambda e: self._line_change(e))
         else:
             self.coords = self.coords[:2] + [event.x, event.y]
             self._check_viewport_borders(event.x, event.y)
@@ -686,17 +694,20 @@ class Application(tk.Tk):
             self.txt_tag += 1
         height = font.Font(font=f'Helvetica {self.font_size} bold').metrics('linespace') // 2
         width = font.Font(font=f'Helvetica {self.font_size} bold').measure('|')
+        self.alpha = 0.8
         self._create_txt_bg(self._offset_bbox((event.x, event.y - height, event.x + width, event.y + height), 3),
-                            'white', 0.8)
+                            'white', self.alpha)
         self._check_viewport_borders(event.x - 3, event.y - height)
         self._check_viewport_borders(event.x + width + 3, event.y + height)
         self.coords = [event.x, event.y, 0, 0]
+        self.canvas.bind('<MouseWheel>', lambda e: self._alpha_change(e))
         self.unbind('<Escape>')
 
     def _text_start(self, event):
         self.bind('<Key>', self._key_handler)
         self.bind('<Control-Key>', self._key_control_handler)
         self.bind('<Control-MouseWheel>', lambda e: self._mouse_control_wheel_handler(e))
+        self.canvas.unbind('<MouseWheel>')
         self.txt = ''
         height = font.Font(font=f'Helvetica {self.font_size} bold').metrics('linespace') // 2
         self.coords[1] -= height if self.coords[2:] == [0, 0] else 0
@@ -725,10 +736,19 @@ class Application(tk.Tk):
         y2, y1 = (y1, y2) if y2 < y1 else (y2, y1)
 
         del self.image_stack[-1]
-        self._create_txt_bg(self._offset_bbox((x1, y1, x2, y2), 3), 'white', 0.8)
+        self._create_txt_bg(self._offset_bbox((x1, y1, x2, y2), 3), 'white', self.alpha)
 
         self.coords[2] = x2
         self.coords[3] = y2
+
+    def _alpha_change(self, event):
+        self.alpha = min(self.alpha + 0.1, 1) if event.delta > 0 else max(self.alpha - 0.1, 0)
+        x1, y1 = self.coords[:2]
+        x2, y2 = event.x, event.y
+        x2, x1 = (x1, x2) if x2 < x1 else (x2, x1)
+        y2, y1 = (y1, y2) if y2 < y1 else (y2, y1)
+        del self.image_stack[-1]
+        self._create_txt_bg(self._offset_bbox((x1, y1, x2, y2), 3), 'white', self.alpha)
 
     def _create_txt_bg(self, bbox, color, alpha):
         x1, y1, x2, y2 = bbox
@@ -791,7 +811,7 @@ class Application(tk.Tk):
         self._check_viewport_borders(bounds[0] - 3, bounds[1] - 3)
         self._check_viewport_borders(bounds[2] + 3, bounds[3] + 3)
         del self.image_stack[-1]
-        self._create_txt_bg(self._offset_bbox(bounds, 3), 'white', 0.8)
+        self._create_txt_bg(self._offset_bbox(bounds, 3), 'white', self.alpha)
         self._update_cursor_position()
 
     def _key_handler(self, event):
@@ -910,6 +930,7 @@ class Application(tk.Tk):
                                                   anchor='center', font='Helvetica 18 bold',
                                                   tags=[tag, 'editor', 'item'])
         self.canvas.tag_bind(tag, '<ButtonPress-3>', partial(self._number_delete, tag))
+        self.canvas.bind('<MouseWheel>', lambda e: self._num_change(e))
 
     def _number_move(self, event):
         x1, y1, *_ = self.canvas.coords(self.number_arrow)
@@ -922,9 +943,21 @@ class Application(tk.Tk):
                                outline=self.color_panel['background'])
         self.canvas.coords(self.number_arrow, x1, y1, x2, y2)
 
+    def _num_change(self, event):
+        self.num = self.num + 1 if event.delta > 0 else max(self.num - 1, 1)
+        self.num_button['text'] = self.num
+        tag = '_' + str(self.num)
+        while self.canvas.find_withtag(tag) != ():
+            tag = tag + '_' + str(self.num)
+        self.canvas.itemconfig(self.number_txt, text=self.num, tags=[tag, 'editor', 'item'])
+        self.canvas.itemconfig(self.number_arrow, tags=[tag, 'editor', 'item'])
+        self.canvas.itemconfig(self.number_circle,tags=[tag, 'editor', 'item'])
+        self.canvas.tag_bind(tag, '<ButtonPress-3>', partial(self._number_delete, tag))
+
     def _number_set(self):
         self.num += 1
         self.num_button['text'] = self.num
+        self.canvas.unbind('<MouseWheel>')
 
     def _number_delete(self, tag, _):
         self.canvas.delete(tag)
