@@ -673,11 +673,11 @@ class Application(tk.Tk):
 
     def _rect_corner_change(self, event):
         if event.delta < 0:
-            self.rect_corner = max(self.rect_corner + ((self.rect_corner // 10) + 1), 0)
+            self.rect_corner = max(self.rect_corner - ((self.rect_corner // 10) + 1), 0)
         else:
+            self.rect_corner += (self.rect_corner // 10) + 1
             x1, y1, x2, y2 = self.coords
-            radius = min((x2 - x1) // 2, (y2 - y1) // 2, self.rect_corner)
-            self.rect_corner = min(self.rect_corner - ((self.rect_corner // 10) + 1), radius)
+            self.rect_corner = min(abs(x2 - x1) // 2, abs(y2 - y1) // 2, self.rect_corner)
         self.canvas.coords(self.rect, self._round_rectangle(self.coords, self.rect_corner))
 
     def _set_text(self):
