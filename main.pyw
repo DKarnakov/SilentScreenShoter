@@ -24,10 +24,9 @@ class Application(tk.Tk):
         self.canvas = tk.Canvas(self, cursor='cross', highlightthickness=0)
         self.canvas.pack(side='top', fill='both', expand=True)
 
-        self.canvas.bind('<ButtonPress-1>', self._create_editor)
-        self.canvas.bind('<B1-Motion>', self._set_viewport)
-        self.canvas.bind('<ButtonRelease-1>', self._start_editing)
-        self.bind('<Escape>', lambda e: self.destroy())
+        self.canvas.bind('<ButtonPress-1>', lambda e: self._create_editor(e))
+        self.canvas.bind('<B1-Motion>', lambda e: self._set_viewport(e))
+        self.canvas.bind('<ButtonRelease-1>', lambda e: self._start_editing())
 
         self.x1 = self.y1 = None
         self.x2 = self.y2 = None
@@ -48,6 +47,7 @@ class Application(tk.Tk):
         self.is_blinking = None
         self.font_size = 18
         self.ruler_scale = 1.0
+        self.callback_button = None
 
         self.panel = ttk.Frame(self.canvas)
         self.arrow_button = ttk.Button(self.panel, text='Стрелка', command=lambda: self._set_arrow())
@@ -69,6 +69,7 @@ class Application(tk.Tk):
         self.bind('<F5>', lambda e: self._set_text())
         self.bind('<F6>', lambda e: self._set_number())
         self.bind('<F7>', lambda e: self._set_blur())
+        self.bind('<Escape>', lambda e: self.destroy())
 
         self.bind('<KeyPress-Shift_L>', lambda e: done_txt.set('Сохранить'))
         self.bind('<KeyRelease-Shift_L>', lambda e: done_txt.set('Ok'))
@@ -81,8 +82,8 @@ class Application(tk.Tk):
         background = self.image.convert('L')
         background = ImageEnhance.Brightness(background).enhance(0.8)
 
-        self.background_tk = ImageTk.PhotoImage(background)
-        self.canvas.create_image(0, 0, anchor='nw', image=self.background_tk)
+        self.background = ImageTk.PhotoImage(background)
+        self.canvas.create_image(0, 0, anchor='nw', image=self.background)
 
         self.focus_set()
 
@@ -159,8 +160,6 @@ class Application(tk.Tk):
         self.screenshot_area_tk = ImageTk.PhotoImage(screenshot_area)
 
         self.viewport = self.canvas.create_image(x1, y1, anchor='nw', image=self.screenshot_area_tk, tags='editor')
-
-        self.canvas.config(cursor='fleur')
 
         self.border = self.canvas.create_rectangle(x1, y1, x2, y2,
                                                    width=2, dash=50, outline='lightgrey',
@@ -312,7 +311,7 @@ class Application(tk.Tk):
             self.canvas.itemconfig(self.viewport, image=self.screenshot_area_tk, anchor='nw')
             self._draw_borders(x1, y1, x2, y2)
 
-    def _start_editing(self, _):
+    def _start_editing(self):
         if [self.x1, self.x2, self.y1, self.y2] == [None, None, None, None]:
             return
         self.x1, self.y1, self.x2, self.y2 = self.canvas.coords(self.border)
@@ -416,8 +415,8 @@ class Application(tk.Tk):
 
     def _pen_recognise(self):
         points = []
-        for point in range(len(self.coords) // 2):
-            points.append((float(self.coords[point * 2]), float(self.coords[(point * 2) + 1])))
+        for point in range(0, len(self.coords), 2):
+            points.append((float(self.coords[point]), float(self.coords[point + 1])))
         height = self.canvas.bbox(self.pen)[3] - self.canvas.bbox(self.pen)[1]
         width = self.canvas.bbox(self.pen)[2] - self.canvas.bbox(self.pen)[0]
         tolerance = max(height, width) / 10
@@ -512,6 +511,9 @@ class Application(tk.Tk):
                                                  arrowshape=(15, 15, 4),
                                                  arrow=tk.BOTH,
                                                  fill='grey50', capstyle='round')
+            self.ruler_area = self.canvas.create_polygon(self.coords, tags='ruler', dash=(10, 5), width=2,
+                                                         fill="grey90", outline="grey50")
+            self.canvas.itemconfigure(self.ruler_area, state='hidden')
             self.ruler_size = self.canvas.create_text(event.x, event.y,
                                                       font='Helvetica 10 bold',
                                                       fill='grey50',
@@ -522,7 +524,16 @@ class Application(tk.Tk):
             self.canvas.tag_raise(self.ruler_size)
             self.ruler_txt = ''
             self.bind('<Key>', self._ruler_scale)
-        else:
+            self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._ruler_add_point(e))
+            self.canvas.tag_unbind('editor', '<B1-Motion>')
+            self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
+            self.canvas.tag_unbind('editor', '<Shift-B1-Motion>')
+
+            for button in self.panel.winfo_children():
+                if 'pressed' in ttk.Button.state(button):
+                    self.callback_button = button
+                    ttk.Button.state(button, ['!pressed'])
+        elif len(self.coords) == 4:
             self.coords = self.coords[:2] + [event.x, event.y]
             self._check_viewport_borders(event.x, event.y)
             self.canvas.coords(self.ruler, self.coords)
@@ -535,12 +546,51 @@ class Application(tk.Tk):
                     self.ruler_scale = 1.0
                 self.ruler_txt = ''
             self._draw_ruler_size(int(length * self.ruler_scale), 'grey50', 'white')
+        else:
+            self.coords = self.coords[:-2] + [event.x, event.y]
+            self._check_viewport_borders(event.x, event.y)
+            self.canvas.coords(self.ruler_area, self.coords)
+            self._draw_ruler_size(self._area(), 'grey50', 'grey95')
+
+    def _ruler_add_point(self, event):
+        self.coords += [event.x, event.y]
+        if len(self.coords) == 6:
+            self.canvas.itemconfigure(self.ruler_area, state='normal')
+            self.canvas.itemconfigure(self.ruler, state='hidden')
+            self.canvas.tag_bind('editor', '<ButtonPress-3>', lambda e: self._ruler_delete_point(e))
+            self.unbind('<Key>')
+        self.canvas.coords(self.ruler_area, self.coords)
+
+    def _ruler_delete_point(self, event):
+        self.coords = self.coords[:-4] + [event.x, event.y]
+        if len(self.coords) == 4:
+            self.canvas.itemconfigure(self.ruler, state='normal')
+            self.canvas.itemconfigure(self.ruler_area, state='hidden')
+            self.canvas.coords(self.ruler, self.coords)
+            length = dist(self.coords[2:], self.coords[:2])
+            self._draw_ruler_size(int(length * self.ruler_scale), 'grey50', 'white')
+            self.canvas.tag_unbind('editor', '<ButtonPress-3>')
+            self.bind('<Key>', self._ruler_scale)
+        else:
+            self.canvas.coords(self.ruler_area, self.coords)
+            self._draw_ruler_size(self._area(), 'grey50', 'grey95')
+
+    def _area(self):
+        vertices = [(self.coords[i], self.coords[i + 1]) for i in range(0, len(self.coords), 2)]
+        n = len(vertices)
+        area = 0
+        for i in range(n):
+            j = (i + 1) % n
+            area += vertices[i][0] * vertices[j][1]
+            area -= vertices[j][0] * vertices[i][1]
+        area = abs(area) / 2.0
+        return f'S={(area * self.ruler_scale ** 2):.1f}'
 
     def _draw_ruler_size(self, text, text_color, bg_color):
         self.canvas.itemconfigure(self.ruler_size, text=text, fill=text_color)
         self.canvas.itemconfigure(self.ruler_size_bg, fill=bg_color)
-        x = (self.coords[2] + self.coords[0]) // 2
-        y = (self.coords[3] + self.coords[1]) // 2
+        x = sum(self.coords[::2]) / (len(self.coords) // 2)
+        y = sum(self.coords[1::2]) / (len(self.coords) // 2)
         self.canvas.coords(self.ruler_size, x, y)
         self.canvas.coords(self.ruler_size_bg, self._offset_bbox(self.canvas.bbox(self.ruler_size), 3))
 
@@ -566,6 +616,10 @@ class Application(tk.Tk):
     def _ruler_stop(self):
         self.canvas.delete('ruler')
         self.unbind('<Key>')
+        self.canvas.tag_unbind('editor', '<ButtonPress-3>')
+        if self.callback_button:
+            self.callback_button.invoke()
+            self.callback_button = None
 
     @staticmethod
     def _offset_bbox(bbox, offset):
@@ -953,7 +1007,7 @@ class Application(tk.Tk):
             tag = tag + '_' + str(self.num)
         self.canvas.itemconfig(self.number_txt, text=self.num, tags=[tag, 'editor', 'item'])
         self.canvas.itemconfig(self.number_arrow, tags=[tag, 'editor', 'item'])
-        self.canvas.itemconfig(self.number_circle,tags=[tag, 'editor', 'item'])
+        self.canvas.itemconfig(self.number_circle, tags=[tag, 'editor', 'item'])
         self.canvas.tag_bind(tag, '<ButtonPress-3>', partial(self._number_delete, tag))
 
     def _number_set(self):
