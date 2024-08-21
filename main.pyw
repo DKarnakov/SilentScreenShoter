@@ -12,6 +12,7 @@ import argparse
 import os
 import time
 from colorsys import rgb_to_hsv, rgb_to_hls
+from shapely.geometry import Polygon
 
 
 class Application(tk.Tk):
@@ -512,7 +513,7 @@ class Application(tk.Tk):
                                                  arrow=tk.BOTH,
                                                  fill='grey50', capstyle='round')
             self.ruler_area = self.canvas.create_polygon(self.coords, tags='ruler', dash=(10, 5), width=2,
-                                                         fill="grey90", outline="grey50")
+                                                         fill='grey90', outline='grey50')
             self.canvas.itemconfigure(self.ruler_area, state='hidden')
             self.ruler_size = self.canvas.create_text(event.x, event.y,
                                                       font='Helvetica 10 bold',
@@ -550,7 +551,7 @@ class Application(tk.Tk):
             self.coords = self.coords[:-2] + [event.x, event.y]
             self._check_viewport_borders(event.x, event.y)
             self.canvas.coords(self.ruler_area, self.coords)
-            self._draw_ruler_size(self._area(), 'grey50', 'grey95')
+            self._draw_ruler_area()
 
     def _ruler_add_point(self, event):
         self.coords += [event.x, event.y]
@@ -560,6 +561,7 @@ class Application(tk.Tk):
             self.canvas.tag_bind('editor', '<ButtonPress-3>', lambda e: self._ruler_delete_point(e))
             self.unbind('<Key>')
         self.canvas.coords(self.ruler_area, self.coords)
+        self._draw_ruler_area()
 
     def _ruler_delete_point(self, event):
         self.coords = self.coords[:-4] + [event.x, event.y]
@@ -573,18 +575,21 @@ class Application(tk.Tk):
             self.bind('<Key>', self._ruler_scale)
         else:
             self.canvas.coords(self.ruler_area, self.coords)
-            self._draw_ruler_size(self._area(), 'grey50', 'grey95')
+            self._draw_ruler_area()
 
-    def _area(self):
+    def _draw_ruler_area(self):
         vertices = [(self.coords[i], self.coords[i + 1]) for i in range(0, len(self.coords), 2)]
-        n = len(vertices)
-        area = 0
-        for i in range(n):
-            j = (i + 1) % n
-            area += vertices[i][0] * vertices[j][1]
-            area -= vertices[j][0] * vertices[i][1]
-        area = abs(area) / 2.0
-        return f'S={(area * self.ruler_scale ** 2):.1f}'
+        polygon = Polygon(vertices)
+        if polygon.is_simple:
+            self.canvas.itemconfigure(self.ruler_size, state='normal')
+            self.canvas.itemconfigure(self.ruler_size_bg, state='normal')
+            self.canvas.itemconfigure(self.ruler_area, fill='grey90')
+            self._draw_ruler_size(f'S = {int(polygon.area * self.ruler_scale ** 2):_}'.replace('_', ' '),
+                                  'grey50', 'grey95')
+        else:
+            self.canvas.itemconfigure(self.ruler_size, state='hidden')
+            self.canvas.itemconfigure(self.ruler_size_bg, state='hidden')
+            self.canvas.itemconfigure(self.ruler_area, fill='')
 
     def _draw_ruler_size(self, text, text_color, bg_color):
         self.canvas.itemconfigure(self.ruler_size, text=text, fill=text_color)
@@ -1082,6 +1087,7 @@ class Notepad(tk.Tk):
         self.context_menu.add_command(label='Вставить', accelerator='Ctrl+V')
 
         self.text.bind('<Button-3>', self._context_menu)
+        self.text.bind('<Shift-F3>', lambda e: self._change_case())
         self.text.bind('<Escape>', lambda e: self._on_destroy())
 
         self.text.insert('1.0', txt[:-1])
@@ -1093,6 +1099,22 @@ class Notepad(tk.Tk):
         self.context_menu.entryconfigure('Копировать', command=lambda: self.text.event_generate('<<Copy>>'))
         self.context_menu.entryconfigure('Вставить', command=lambda: self.text.event_generate('<<Paste>>'))
         self.context_menu.tk.call('tk_popup', self.context_menu, event.x_root, event.y_root)
+
+    def _change_case(self):
+        sel_start, sel_end = self.text.tag_ranges('sel')
+
+        if sel_start and sel_end:
+            selected_text = self.text.get(sel_start, sel_end)
+            if selected_text.islower():
+                replace_text = selected_text.upper()
+            elif selected_text.isupper():
+                replace_text = selected_text.title()
+            elif selected_text.istitle():
+                replace_text = selected_text.capitalize()
+            else:
+                replace_text = selected_text.lower()
+            self.text.replace(sel_start, sel_end, replace_text)
+            self.text.tag_add('sel', sel_start, sel_end)
 
     def _on_destroy(self):
         self.clipboard_clear()
