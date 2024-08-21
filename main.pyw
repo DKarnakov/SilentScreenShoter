@@ -311,6 +311,7 @@ class Application(tk.Tk):
             self.canvas.moveto(self.viewport, x1, y1)
             self.canvas.itemconfig(self.viewport, image=self.screenshot_area_tk, anchor='nw')
             self._draw_borders(x1, y1, x2, y2)
+            self.x1, self.y1, self.x2, self.y2 = [x1, y1, x2, y2]
 
     def _start_editing(self):
         if [self.x1, self.x2, self.y1, self.y2] == [None, None, None, None]:
