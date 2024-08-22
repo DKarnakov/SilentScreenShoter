@@ -1103,14 +1103,13 @@ class Notepad(tk.Tk):
 
     def _change_case(self):
         sel_start, sel_end = self.text.tag_ranges('sel')
-
         if sel_start and sel_end:
             selected_text = self.text.get(sel_start, sel_end)
             if selected_text.islower():
                 replace_text = selected_text.upper()
-            elif selected_text.isupper():
+            elif selected_text.isupper() and selected_text != selected_text.title():
                 replace_text = selected_text.title()
-            elif selected_text.istitle():
+            elif selected_text.istitle() and selected_text != selected_text.capitalize():
                 replace_text = selected_text.capitalize()
             else:
                 replace_text = selected_text.lower()
