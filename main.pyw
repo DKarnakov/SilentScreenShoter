@@ -929,19 +929,21 @@ class Application(tk.Tk):
     def _set_blur(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._blur_create(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._blur_move(e))
-        self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
+        self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self.canvas.unbind('<MouseWheel>'))
         self.canvas.tag_unbind('editor', '<Shift-B1-Motion>')
         self._set_selection(self.blur_button)
 
     def _blur_create(self, event):
         self.coords = event.x, event.y
-
         blur_area = self.blur_image.crop(self.coords * 2)
         self.image_stack.append(ImageTk.PhotoImage(blur_area))
         self.blur = self.canvas.create_image(event.x, event.y, anchor='nw', image=self.image_stack[-1],
                                              tags=['editor', 'item'])
         self.canvas.tag_raise(self.blur, self.viewport)
+        self.canvas.bind('<MouseWheel>', lambda e: self._blur_change(e))
         self.canvas.tag_bind(self.blur, '<ButtonPress-3>', partial(self.canvas.delete, self.blur))
+        self.blur_radius = 5
+        self.blur_image = self.image.filter(ImageFilter.GaussianBlur(self.blur_radius))
 
     def _blur_move(self, event):
         x1, y1 = self.coords
@@ -957,6 +959,11 @@ class Application(tk.Tk):
         blur_area = self.blur_image.crop((x1, y1, x2, y2))
         self.image_stack[-1] = ImageTk.PhotoImage(blur_area)
         self.canvas.itemconfig(self.blur, anchor=anchor, image=self.image_stack[-1], tags=['editor', 'item'])
+
+    def _blur_change(self, event):
+        self.blur_radius = min(self.blur_radius + 1, 10) if event.delta > 0 else max(self.blur_radius - 1, 1)
+        self.blur_image = self.image.filter(ImageFilter.GaussianBlur(self.blur_radius))
+        self._blur_move(event)
 
     def _set_number(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._number_create(e))
