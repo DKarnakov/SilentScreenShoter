@@ -12,6 +12,8 @@ import argparse
 import os
 import time
 from colorsys import rgb_to_hsv, rgb_to_hls
+
+from shapely import LineString
 from shapely.geometry import Polygon
 
 
@@ -431,11 +433,8 @@ class Application(tk.Tk):
             if corners == 3:  # triangle
                 shape[-1] = shape[0]
             elif corners in [4, 5]:  # rectangle (incl. mistake)
-                x1 = min([point[0] for point in points])
-                y1 = min([point[1] for point in points])
-                x2 = max([point[0] for point in points])
-                y2 = max([point[1] for point in points])
-                shape = [(x1, y1), (x2, y1), (x2, y2), (x1, y2), (x1, y1)]
+                coords = LineString(points).oriented_envelope.exterior.coords
+                shape = [(x,y) for x, y in coords]
             else:  # ellipse
                 x1 = min([point[0] for point in points])
                 y1 = min([point[1] for point in points])
