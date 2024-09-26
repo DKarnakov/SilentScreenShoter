@@ -12,12 +12,44 @@ import argparse
 import os
 import time
 from colorsys import rgb_to_hsv, rgb_to_hls
-
 from shapely import LineString
 from shapely.geometry import Polygon
 
 
 class Application(tk.Tk):
+    class Hint:
+        def __init__(self, widget):
+            self.widget = widget
+            self.widget.bind('<Enter>', lambda e: self.schedule())
+            self.widget.bind('<Leave>', lambda e: self.hidetip())
+            self.widget.bind('<ButtonPress>', lambda e: self.hidetip())
+            self.id = None
+
+        def schedule(self):
+            self.unschedule()
+            self.id = self.widget.after(3000, self.showtip)
+
+        def unschedule(self):
+            if self.id:
+                self.widget.after_cancel(self.id)
+            self.id = None
+
+        def showtip(self):
+            hints = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', None, 'Ctrl+R', 'Ctrl+C']
+            for idx, w in enumerate(self.widget.winfo_children()):
+                if isinstance(w, ttk.Button):
+                    x = w.winfo_rootx() + w.winfo_width() // 2
+                    y = w.winfo_rooty() + w.winfo_height() - 0
+                    tooltip_label = tk.Label(master=self.widget.master, text=hints[idx],
+                                             background='lightyellow', relief='solid', borderwidth=1)
+                    tooltip_label.place(x=x, y=y, anchor='n')
+
+        def hidetip(self):
+            self.unschedule()
+            for w in self.widget.master.winfo_children():
+                if isinstance(w, tk.Label):
+                    w.destroy()
+
     def __init__(self):
         tk.Tk.__init__(self)
 
@@ -51,9 +83,9 @@ class Application(tk.Tk):
         self.font_size = 18
         self.ruler_scale = 1.0
         self.callback_button = None
-        self.is_hints = False
 
         self.panel = ttk.Frame(self.canvas)
+        self.panel_hint = self.Hint(self.panel)
         self.arrow_button = ttk.Button(self.panel, text='Стрелка', command=lambda: self._set_arrow())
         self.pen_button = ttk.Button(self.panel, text='Карандаш', command=lambda: self._set_pen())
         self.line_button = ttk.Button(self.panel, text='Линия', command=lambda: self._set_line())
@@ -206,29 +238,15 @@ class Application(tk.Tk):
         self.canvas.itemconfig('precision', state='hidden')
 
         self.bind('<KeyPress-Alt_L>', lambda e: self._precision())
-        self.bind('<KeyRelease-Alt_L>', lambda e: (self.canvas.itemconfig('precision', state='hidden'),
-                                                   self._hide_hint()))
+        self.bind('<KeyRelease-Alt_L>', lambda e: self.canvas.itemconfig('precision', state='hidden'))
         self.bind('<KeyPress-Alt_R>', lambda e: self._precision())
-        self.bind('<KeyRelease-Alt_R>', lambda e: (self.canvas.itemconfig('precision', state='hidden'),
-                                                   self._hide_hint()))
+        self.bind('<KeyRelease-Alt_R>', lambda e: self.canvas.itemconfig('precision', state='hidden'))
         self.bind('<Alt-Button-1>', lambda e: self._add_color())
         self.bind('<Control-KeyPress>', lambda e: self._control(e))
 
         self.canvas.tag_bind('editor', '<ButtonPress-2>', lambda e: self._new_item(e))
         self.canvas.tag_bind('editor', '<B2-Motion>', lambda e: self._ruler_move(e))
         self.canvas.tag_bind('editor', '<ButtonRelease-2>', lambda e: self._ruler_stop())
-
-    def _show_hint(self, widget, text):
-        x = widget.winfo_rootx() + widget.winfo_width() // 2
-        y = widget.winfo_rooty() + widget.winfo_height() - 0
-        self.tooltip_label = tk.Label(text=text, background='lightyellow', relief='solid', borderwidth=1)
-        self.tooltip_label.place(x=x, y=y, anchor='n')
-
-    def _hide_hint(self):
-        for widget in self.winfo_children():
-            if isinstance(widget, tk.Label):
-                widget.place_forget()
-        self.is_hints = False
 
     def _precision(self):
         x1, y1, x2, y2 = self.canvas.bbox(self.viewport)
@@ -266,13 +284,6 @@ class Application(tk.Tk):
         self.canvas.coords(self.color_pick_bg, (x - 34, y - height_pick - 32 + 70, x + 36, y - 32 + 70))
         self.canvas.tag_raise('precision')
         self.canvas.tag_raise('z_33')
-
-        if not self.is_hints:
-            hints = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', '', 'Ctrl-R', 'Ctrl-C']
-            for idx, widget in enumerate(self.panel.winfo_children()):
-                if isinstance(widget, ttk.Button):
-                    self._show_hint(widget, hints[idx])
-            self.is_hints = True
 
     def _add_color(self):
         color = self.canvas.itemcget('z_33', 'fill')
@@ -366,6 +377,7 @@ class Application(tk.Tk):
         for w in button.master.winfo_children():
             ttk.Button.state(w, ['!pressed'])
         ttk.Button.state(button, ['pressed'])
+        self.panel_hint.hidetip()
         if button != self.text_button and self.text_edit:
             self._text_stop()
 
