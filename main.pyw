@@ -51,6 +51,7 @@ class Application(tk.Tk):
         self.font_size = 18
         self.ruler_scale = 1.0
         self.callback_button = None
+        self.is_hints = False
 
         self.panel = ttk.Frame(self.canvas)
         self.arrow_button = ttk.Button(self.panel, text='Стрелка', command=lambda: self._set_arrow())
@@ -205,15 +206,29 @@ class Application(tk.Tk):
         self.canvas.itemconfig('precision', state='hidden')
 
         self.bind('<KeyPress-Alt_L>', lambda e: self._precision())
-        self.bind('<KeyRelease-Alt_L>', lambda e: self.canvas.itemconfig('precision', state='hidden'))
+        self.bind('<KeyRelease-Alt_L>', lambda e: (self.canvas.itemconfig('precision', state='hidden'),
+                                                   self._hide_hint()))
         self.bind('<KeyPress-Alt_R>', lambda e: self._precision())
-        self.bind('<KeyRelease-Alt_R>', lambda e: self.canvas.itemconfig('precision', state='hidden'))
+        self.bind('<KeyRelease-Alt_R>', lambda e: (self.canvas.itemconfig('precision', state='hidden'),
+                                                   self._hide_hint()))
         self.bind('<Alt-Button-1>', lambda e: self._add_color())
         self.bind('<Control-KeyPress>', lambda e: self._control(e))
 
         self.canvas.tag_bind('editor', '<ButtonPress-2>', lambda e: self._new_item(e))
         self.canvas.tag_bind('editor', '<B2-Motion>', lambda e: self._ruler_move(e))
         self.canvas.tag_bind('editor', '<ButtonRelease-2>', lambda e: self._ruler_stop())
+
+    def _show_hint(self, widget, text):
+        x = widget.winfo_rootx() + widget.winfo_width() // 2
+        y = widget.winfo_rooty() + widget.winfo_height() - 0
+        self.tooltip_label = tk.Label(text=text, background='lightyellow', relief='solid', borderwidth=1)
+        self.tooltip_label.place(x=x, y=y, anchor='n')
+
+    def _hide_hint(self):
+        for widget in self.winfo_children():
+            if isinstance(widget, tk.Label):
+                widget.place_forget()
+        self.is_hints = False
 
     def _precision(self):
         x1, y1, x2, y2 = self.canvas.bbox(self.viewport)
@@ -251,6 +266,13 @@ class Application(tk.Tk):
         self.canvas.coords(self.color_pick_bg, (x - 34, y - height_pick - 32 + 70, x + 36, y - 32 + 70))
         self.canvas.tag_raise('precision')
         self.canvas.tag_raise('z_33')
+
+        if not self.is_hints:
+            hints = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', '', 'Ctrl-R', 'Ctrl-C']
+            for idx, widget in enumerate(self.panel.winfo_children()):
+                if isinstance(widget, ttk.Button):
+                    self._show_hint(widget, hints[idx])
+            self.is_hints = True
 
     def _add_color(self):
         color = self.canvas.itemcget('z_33', 'fill')
@@ -434,7 +456,7 @@ class Application(tk.Tk):
                 shape[-1] = shape[0]
             elif corners in [4, 5]:  # rectangle (incl. mistake)
                 coords = LineString(points).oriented_envelope.exterior.coords
-                shape = [(x,y) for x, y in coords]
+                shape = [(x, y) for x, y in coords]
             else:  # ellipse
                 x1 = min([point[0] for point in points])
                 y1 = min([point[1] for point in points])
