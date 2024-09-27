@@ -40,9 +40,8 @@ class Application(tk.Tk):
                 if isinstance(w, ttk.Button):
                     x = w.winfo_rootx() + w.winfo_width() // 2
                     y = w.winfo_rooty() + w.winfo_height() - 0
-                    hint_label = tk.Label(master=self.widget.master, text=text,
-                                          background='lightyellow', relief='solid', borderwidth=1)
-                    hint_label.place(x=x, y=y, anchor='n')
+                    tk.Label(master=self.widget.master, text=text,
+                             background='lightyellow', relief='solid',borderwidth=1).place(x=x, y=y, anchor='n')
 
         def hide_hint(self):
             self._unschedule()
