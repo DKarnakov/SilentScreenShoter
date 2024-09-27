@@ -18,34 +18,34 @@ from shapely.geometry import Polygon
 
 class Application(tk.Tk):
     class Hint:
-        def __init__(self, widget):
+        def __init__(self, widget, hint):
             self.widget = widget
-            self.widget.bind('<Enter>', lambda e: self.schedule())
-            self.widget.bind('<Leave>', lambda e: self.hidetip())
-            self.widget.bind('<ButtonPress>', lambda e: self.hidetip())
+            self.hint = hint
+            self.widget.bind('<Enter>', lambda e: self._schedule())
+            self.widget.bind('<Leave>', lambda e: self.hide_hint())
+            self.widget.bind('<ButtonPress>', lambda e: self.hide_hint())
             self.id = None
 
-        def schedule(self):
-            self.unschedule()
-            self.id = self.widget.after(3000, self.showtip)
+        def _schedule(self):
+            self._unschedule()
+            self.id = self.widget.after(3000, self.show_hint)
 
-        def unschedule(self):
+        def _unschedule(self):
             if self.id:
                 self.widget.after_cancel(self.id)
             self.id = None
 
-        def showtip(self):
-            hints = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', None, 'Ctrl+R', 'Ctrl+C']
-            for idx, w in enumerate(self.widget.winfo_children()):
+        def show_hint(self):
+            for w, text in zip(self.widget.winfo_children(), self.hint):
                 if isinstance(w, ttk.Button):
                     x = w.winfo_rootx() + w.winfo_width() // 2
                     y = w.winfo_rooty() + w.winfo_height() - 0
-                    tooltip_label = tk.Label(master=self.widget.master, text=hints[idx],
-                                             background='lightyellow', relief='solid', borderwidth=1)
-                    tooltip_label.place(x=x, y=y, anchor='n')
+                    hint_label = tk.Label(master=self.widget.master, text=text,
+                                          background='lightyellow', relief='solid', borderwidth=1)
+                    hint_label.place(x=x, y=y, anchor='n')
 
-        def hidetip(self):
-            self.unschedule()
+        def hide_hint(self):
+            self._unschedule()
             for w in self.widget.master.winfo_children():
                 if isinstance(w, tk.Label):
                     w.destroy()
@@ -85,7 +85,7 @@ class Application(tk.Tk):
         self.callback_button = None
 
         self.panel = ttk.Frame(self.canvas)
-        self.panel_hint = self.Hint(self.panel)
+        self.panel_hint = self.Hint(self.panel, ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', '', 'Ctrl+R', 'Ctrl+C'])
         self.arrow_button = ttk.Button(self.panel, text='Стрелка', command=lambda: self._set_arrow())
         self.pen_button = ttk.Button(self.panel, text='Карандаш', command=lambda: self._set_pen())
         self.line_button = ttk.Button(self.panel, text='Линия', command=lambda: self._set_line())
@@ -377,7 +377,7 @@ class Application(tk.Tk):
         for w in button.master.winfo_children():
             ttk.Button.state(w, ['!pressed'])
         ttk.Button.state(button, ['pressed'])
-        self.panel_hint.hidetip()
+        self.panel_hint.hide_hint()
         if button != self.text_button and self.text_edit:
             self._text_stop()
 
