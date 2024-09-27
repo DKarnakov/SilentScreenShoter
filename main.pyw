@@ -23,7 +23,6 @@ class Application(tk.Tk):
             self.hint = hint
             self.widget.bind('<Enter>', lambda e: self._schedule())
             self.widget.bind('<Leave>', lambda e: self.hide_hint())
-            self.widget.bind('<ButtonPress>', lambda e: self.hide_hint())
             self._id = None
 
         def _schedule(self):
@@ -48,6 +47,23 @@ class Application(tk.Tk):
             for w in self.widget.master.winfo_children():
                 if isinstance(w, tk.Label):
                     w.destroy()
+
+    class MakeDraggable:
+        def __init__(self, widget):
+            self.widget = widget
+            widget.bind('<Button-1>', lambda e: self.on_drag_start(e))
+            widget.bind('<B1-Motion>', lambda e: self.on_drag_motion(e))
+
+        def on_drag_start(self, event):
+            widget = self.widget
+            widget.drag_start_x = event.x
+            widget.drag_start_y = event.y
+
+        def on_drag_motion(self, event):
+            widget = self.widget
+            x = widget.winfo_x() - widget.drag_start_x + event.x
+            y = widget.winfo_y() - widget.drag_start_y + event.y
+            widget.place(x=x, y=y)
 
     def __init__(self):
         tk.Tk.__init__(self)
@@ -356,6 +372,7 @@ class Application(tk.Tk):
         self.canvas.unbind('<ButtonRelease-1>')
 
         self.canvas.create_window(self.canvas.winfo_width() // 2, 10, window=self.panel, anchor='n', tags='service')
+        self.MakeDraggable(self.panel)
 
         self.arrow_button.grid(padx=3, pady=3, column=0, row=1)
         self.pen_button.grid(padx=3, pady=3, column=1, row=1)
