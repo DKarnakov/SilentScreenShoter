@@ -24,16 +24,16 @@ class Application(tk.Tk):
             self.widget.bind('<Enter>', lambda e: self._schedule())
             self.widget.bind('<Leave>', lambda e: self.hide_hint())
             self.widget.bind('<ButtonPress>', lambda e: self.hide_hint())
-            self.id = None
+            self._id = None
 
         def _schedule(self):
             self._unschedule()
-            self.id = self.widget.after(3000, self.show_hint)
+            self._id = self.widget.after(3000, self.show_hint)
 
         def _unschedule(self):
-            if self.id:
-                self.widget.after_cancel(self.id)
-            self.id = None
+            if self._id:
+                self.widget.after_cancel(self._id)
+            self._id = None
 
         def show_hint(self):
             for w, text in zip(self.widget.winfo_children(), self.hint):
@@ -41,7 +41,7 @@ class Application(tk.Tk):
                     x = w.winfo_rootx() + w.winfo_width() // 2
                     y = w.winfo_rooty() + w.winfo_height() - 0
                     tk.Label(master=self.widget.master, text=text,
-                             background='lightyellow', relief='solid',borderwidth=1).place(x=x, y=y, anchor='n')
+                             background='lightyellow', relief='solid', borderwidth=1).place(x=x, y=y, anchor='n')
 
         def hide_hint(self):
             self._unschedule()
