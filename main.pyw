@@ -49,12 +49,15 @@ class Application(tk.Tk):
                     w.destroy()
 
     class MakeDraggable:
-        def __init__(self, widget):
+        def __init__(self, widget, on_start=None):
             self.widget = widget
+            self.function_on_start = on_start
             widget.bind('<Button-1>', lambda e: self.on_drag_start(e))
             widget.bind('<B1-Motion>', lambda e: self.on_drag_motion(e))
 
         def on_drag_start(self, event):
+            if self.function_on_start:
+                self.function_on_start()
             widget = self.widget
             widget.drag_start_x = event.x
             widget.drag_start_y = event.y
@@ -372,7 +375,7 @@ class Application(tk.Tk):
         self.canvas.unbind('<ButtonRelease-1>')
 
         self.canvas.create_window(self.canvas.winfo_width() // 2, 10, window=self.panel, anchor='n', tags='service')
-        self.MakeDraggable(self.panel)
+        self.MakeDraggable(self.panel, on_start=self.panel_hint.hide_hint)
 
         self.arrow_button.grid(padx=3, pady=3, column=0, row=1)
         self.pen_button.grid(padx=3, pady=3, column=1, row=1)
