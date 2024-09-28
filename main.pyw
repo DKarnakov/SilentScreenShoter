@@ -52,21 +52,19 @@ class Application(tk.Tk):
         def __init__(self, widget, on_start=None):
             self.widget = widget
             self.function_on_start = on_start
-            widget.bind('<Button-1>', lambda e: self.on_drag_start(e))
-            widget.bind('<B1-Motion>', lambda e: self.on_drag_motion(e))
+            self.widget.bind('<Button-1>', lambda e: self.on_drag_start(e))
+            self.widget.bind('<B1-Motion>', lambda e: self.on_drag_motion(e))
 
         def on_drag_start(self, event):
             if self.function_on_start:
                 self.function_on_start()
-            widget = self.widget
-            widget.drag_start_x = event.x
-            widget.drag_start_y = event.y
+            self.widget.drag_start_x = event.x
+            self.widget.drag_start_y = event.y
 
         def on_drag_motion(self, event):
-            widget = self.widget
-            x = widget.winfo_x() - widget.drag_start_x + event.x
-            y = widget.winfo_y() - widget.drag_start_y + event.y
-            widget.place(x=x, y=y)
+            x = self.widget.winfo_x() - self.widget.drag_start_x + event.x
+            y = self.widget.winfo_y() - self.widget.drag_start_y + event.y
+            self.widget.place(x=x, y=y)
 
     def __init__(self):
         tk.Tk.__init__(self)
@@ -699,7 +697,7 @@ class Application(tk.Tk):
         dashes = ['', '255', '1', '1 1 1 1', '1 1 1']
         dash = dashes.index(self.canvas.itemcget(self.line, 'dash'))
         dash += 1 if event.delta > 0 else -1
-        self.canvas.itemconfigure(self.line, dash=dashes[dash % 5])
+        self.canvas.itemconfigure(self.line, dash=dashes[dash % len(dashes)])
 
     def _line_move(self, event):
         if len(self.coords) == 2:
