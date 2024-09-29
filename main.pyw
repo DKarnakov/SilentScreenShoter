@@ -22,19 +22,19 @@ class Application(tk.Tk):
             self.widget = widget
             self.hint = hint
             self.widget.bind('<Enter>', lambda e: self._schedule())
-            self.widget.bind('<Leave>', lambda e: self.hide_hint())
+            self.widget.bind('<Leave>', lambda e: self.hide())
             self._id = None
 
         def _schedule(self):
             self._unschedule()
-            self._id = self.widget.after(3000, self.show_hint)
+            self._id = self.widget.after(3000, self.show)
 
         def _unschedule(self):
             if self._id:
                 self.widget.after_cancel(self._id)
             self._id = None
 
-        def show_hint(self):
+        def show(self):
             for w, text in zip(self.widget.winfo_children(), self.hint):
                 if isinstance(w, ttk.Button):
                     x = w.winfo_rootx() + w.winfo_width() // 2
@@ -42,7 +42,7 @@ class Application(tk.Tk):
                     tk.Label(master=self.widget.master, text=text,
                              background='lightyellow', relief='solid', borderwidth=1).place(x=x, y=y, anchor='n')
 
-        def hide_hint(self):
+        def hide(self):
             self._unschedule()
             for w in self.widget.master.winfo_children():
                 if isinstance(w, tk.Label):
@@ -78,6 +78,7 @@ class Application(tk.Tk):
         self.canvas.bind('<ButtonPress-1>', lambda e: self._create_editor(e))
         self.canvas.bind('<B1-Motion>', lambda e: self._set_viewport(e))
         self.canvas.bind('<ButtonRelease-1>', lambda e: self._start_editing())
+        self.canvas.bind('<Button-3>', lambda e: self.destroy())
 
         self.x1 = self.y1 = None
         self.x2 = self.y2 = None
@@ -371,9 +372,10 @@ class Application(tk.Tk):
         self.canvas.unbind('<B1-Motion>')
         self.canvas.unbind('<ButtonPress-1>')
         self.canvas.unbind('<ButtonRelease-1>')
+        self.canvas.unbind('<Button-3>')
 
         self.canvas.create_window(self.canvas.winfo_width() // 2, 10, window=self.panel, anchor='n', tags='service')
-        self.MakeDraggable(self.panel, on_start=self.panel_hint.hide_hint)
+        self.MakeDraggable(self.panel, on_start=self.panel_hint.hide)
 
         self.arrow_button.grid(padx=3, pady=3, column=0, row=1)
         self.pen_button.grid(padx=3, pady=3, column=1, row=1)
@@ -394,7 +396,7 @@ class Application(tk.Tk):
         for w in button.master.winfo_children():
             ttk.Button.state(w, ['!pressed'])
         ttk.Button.state(button, ['pressed'])
-        self.panel_hint.hide_hint()
+        self.panel_hint.hide()
         if button != self.text_button and self.text_edit:
             self._text_stop()
 
