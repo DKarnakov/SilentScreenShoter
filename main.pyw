@@ -52,16 +52,16 @@ class Application(tk.Tk):
         def __init__(self, widget, on_start=None):
             self.widget = widget
             self.function_on_start = on_start
-            self.widget.bind('<Button-1>', lambda e: self.on_drag_start(e))
-            self.widget.bind('<B1-Motion>', lambda e: self.on_drag_motion(e))
+            self.widget.bind('<Button-1>', lambda e: self._drag_start(e))
+            self.widget.bind('<B1-Motion>', lambda e: self._drag_motion(e))
 
-        def on_drag_start(self, event):
+        def _drag_start(self, event):
             if self.function_on_start:
                 self.function_on_start()
             self.widget.drag_start_x = event.x
             self.widget.drag_start_y = event.y
 
-        def on_drag_motion(self, event):
+        def _drag_motion(self, event):
             x = self.widget.winfo_x() - self.widget.drag_start_x + event.x
             y = self.widget.winfo_y() - self.widget.drag_start_y + event.y
             self.widget.place(x=x, y=y)
