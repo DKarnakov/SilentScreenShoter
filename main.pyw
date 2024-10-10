@@ -69,6 +69,7 @@ class Application(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
 
+        self.false_start = None
         self.attributes('-fullscreen', True)
         self.attributes('-topmost', True)
 
@@ -78,7 +79,7 @@ class Application(tk.Tk):
         self.canvas.bind('<ButtonPress-1>', lambda e: self._create_editor(e))
         self.canvas.bind('<B1-Motion>', lambda e: self._set_viewport(e))
         self.canvas.bind('<ButtonRelease-1>', lambda e: self._start_editing())
-        self.canvas.bind('<Button-3>', lambda e: self.destroy())
+        self.canvas.bind('<Button-3>', lambda e: (setattr(self, 'false_start', True), self.destroy()))
 
         self.x1 = self.y1 = None
         self.x2 = self.y2 = None
@@ -1183,6 +1184,11 @@ class Notepad(tk.Tk):
 
 
 def launcher(_, __, button, pressed):
+    def ask_user(on_off):
+        action = f'{('Включить', 'Отключить')[on_off]} SilentScreenShoter?'
+        header = 'SilentScreenShoter'
+        return not on_off if ctypes.windll.user32.MessageBoxW(0, action, header, 0x00040004) == 6 else on_off
+
     global APPLICATION_IS_RUNNING
     global STATUS, LM_BUTTON, MM_BUTTON, RM_BUTTON
     if APPLICATION_IS_RUNNING:
@@ -1197,12 +1203,14 @@ def launcher(_, __, button, pressed):
         RM_BUTTON = pressed
 
     if all([LM_BUTTON, MM_BUTTON, RM_BUTTON]):
-        action = f'{('Включить', 'Отключить')[STATUS]} SilentScreenShoter?'
-        header = 'SilentScreenShoter'
-        STATUS = not STATUS if ctypes.windll.user32.MessageBoxW(0, action, header, 0x00040004) == 6 else STATUS
+        STATUS = ask_user(STATUS)
     elif all([STATUS, LM_BUTTON, RM_BUTTON]):
         APPLICATION_IS_RUNNING = True
-        Application().mainloop()
+        app = Application()
+        app.mainloop()
+        if app.false_start:
+            STATUS = ask_user(STATUS)
+        del app
         APPLICATION_IS_RUNNING = False
 
 
