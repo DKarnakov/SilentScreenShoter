@@ -1105,7 +1105,7 @@ class Application(tk.Tk):
         txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6')
         data = decode(self.screenshot_area)
         bbox = self.canvas.bbox(self.viewport)
-        self.panel_hint._unschedule()
+        self.panel_hint.hide()
         self.destroy()
         Notepad(txt, data, bbox).mainloop()
 
@@ -1141,11 +1141,12 @@ class Notepad(tk.Tk):
         self.geometry(f'{bbox[2] - bbox[0]}x{bbox[3] - bbox[1]}+{bbox[0]}+{bbox[1] - 22}')
         self.protocol('WM_DELETE_WINDOW', self._on_destroy)
         self.text = tk.Text(wrap='word', font='Consolas 11', undo=True)
-        self.text.pack(side='top', fill='both', expand=True)
+        self.text.pack(side='top', fill='both', anchor='n')
 
         if data:
             self.qr = tk.Text(wrap='word', font='Consolas 11', undo=True)
-            self.qr.pack(side='bottom', fill='both', expand=True)
+            self.qr.pack(side='bottom', fill='both', anchor='s')
+            self.qr.insert('1.0', data)
 
         self.context_menu = tk.Menu(self, tearoff=0)
         self.context_menu.add_command(label='Выбрать всё', accelerator='Ctrl+A')
