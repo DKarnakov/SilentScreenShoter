@@ -24,7 +24,6 @@ class Application(tk.Tk):
             self.hint = hint
             self.widget.bind('<Enter>', lambda e: self._schedule())
             self.widget.bind('<Leave>', lambda e: self.hide())
-            self.widget.bind('<ButtonPress-1>', lambda e: print(1))
             self._id = None
 
         def _schedule(self):
@@ -1106,6 +1105,7 @@ class Application(tk.Tk):
         txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6')
         data = decode(self.screenshot_area)
         bbox = self.canvas.bbox(self.viewport)
+        self.panel_hint._unschedule()
         self.destroy()
         Notepad(txt, data, bbox).mainloop()
 
