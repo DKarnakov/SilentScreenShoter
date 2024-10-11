@@ -14,6 +14,7 @@ import time
 from colorsys import rgb_to_hsv, rgb_to_hls
 from shapely import LineString
 from shapely.geometry import Polygon
+from pyzbar.pyzbar import decode
 
 
 class Application(tk.Tk):
@@ -23,6 +24,7 @@ class Application(tk.Tk):
             self.hint = hint
             self.widget.bind('<Enter>', lambda e: self._schedule())
             self.widget.bind('<Leave>', lambda e: self.hide())
+            self.widget.bind('<ButtonPress-1>', lambda e: print(1))
             self._id = None
 
         def _schedule(self):
@@ -1102,9 +1104,10 @@ class Application(tk.Tk):
 
     def _recognize(self):
         txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6')
+        data = decode(self.screenshot_area)
         bbox = self.canvas.bbox(self.viewport)
         self.destroy()
-        Notepad(txt, bbox).mainloop()
+        Notepad(txt, data, bbox).mainloop()
 
     def _done(self):
         self.canvas.delete('service')
@@ -1131,7 +1134,7 @@ class Application(tk.Tk):
 
 
 class Notepad(tk.Tk):
-    def __init__(self, txt, bbox):
+    def __init__(self, txt, data, bbox):
         tk.Tk.__init__(self)
         self.title('SilentScreenShoter — Clipboard')
         self.after(1, lambda: self.text.focus_force())
@@ -1139,6 +1142,10 @@ class Notepad(tk.Tk):
         self.protocol('WM_DELETE_WINDOW', self._on_destroy)
         self.text = tk.Text(wrap='word', font='Consolas 11', undo=True)
         self.text.pack(side='top', fill='both', expand=True)
+
+        if data:
+            self.qr = tk.Text(wrap='word', font='Consolas 11', undo=True)
+            self.qr.pack(side='bottom', fill='both', expand=True)
 
         self.context_menu = tk.Menu(self, tearoff=0)
         self.context_menu.add_command(label='Выбрать всё', accelerator='Ctrl+A')
