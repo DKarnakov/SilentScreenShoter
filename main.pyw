@@ -1,3 +1,7 @@
+import codecs
+import re
+import webbrowser
+
 from PIL import ImageGrab, ImageTk, ImageEnhance, ImageFilter, Image, ImageDraw
 import tkinter as tk
 from tkinter import ttk, filedialog, font
@@ -1102,12 +1106,26 @@ class Application(tk.Tk):
             self.canvas.itemconfig(self.text, fill=self.palette[self.color % self.colors])
 
     def _recognize(self):
-        txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6')
-        data = decode(self.screenshot_area)
+        data = []
+        qr_codes = decode(self.screenshot_area)
+        if qr_codes:
+            for record in qr_codes:
+                draw = ImageDraw.Draw(self.screenshot_area)
+                x1 = record.rect.left
+                y1 = record.rect.top
+                x2 = x1 + record.rect.width
+                y2 = y1 + record.rect.height
+                draw.rectangle((x1, y1, x2, y2), fill='white', outline='white', width=5)
+                data.append({'type': record.type, 'data': codecs.decode(record.data)})
+
+        txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6').strip()
+        if txt != '' or data == []:
+            data.insert(0, {'type': 'Текст', 'data': txt})
+
         bbox = self.canvas.bbox(self.viewport)
         self.panel_hint.hide()
         self.destroy()
-        Notepad(txt, data, bbox).mainloop()
+        Notepad(data, bbox).mainloop()
 
     def _done(self):
         self.canvas.delete('service')
@@ -1134,19 +1152,23 @@ class Application(tk.Tk):
 
 
 class Notepad(tk.Tk):
-    def __init__(self, txt, data, bbox):
+    def __init__(self, data, bbox):
         tk.Tk.__init__(self)
         self.title('SilentScreenShoter — Clipboard')
         self.after(1, lambda: self.text.focus_force())
         self.geometry(f'{bbox[2] - bbox[0]}x{bbox[3] - bbox[1]}+{bbox[0]}+{bbox[1] - 22}')
         self.protocol('WM_DELETE_WINDOW', self._on_destroy)
-        self.text = tk.Text(wrap='word', font='Consolas 11', undo=True)
-        self.text.pack(side='top', fill='both', anchor='n')
+        self.data = data
 
-        if data:
-            self.qr = tk.Text(wrap='word', font='Consolas 11', undo=True)
-            self.qr.pack(side='bottom', fill='both', anchor='s')
-            self.qr.insert('1.0', data)
+        if len(self.data) > 1:
+            self.tabs = ttk.Notebook()
+            for record in self.data:
+                self.tabs.add(tk.Frame(self.tabs), text=record['type'])
+                self.tabs.pack(fill='x', side='top')
+            self.tabs.bind('<<NotebookTabChanged>>', lambda e: self._tab_change())
+
+        self.text = tk.Text(wrap='word', font='Consolas 11', undo=True)
+        self.text.pack(fill='both', expand=True, side='top')
 
         self.context_menu = tk.Menu(self, tearoff=0)
         self.context_menu.add_command(label='Выбрать всё', accelerator='Ctrl+A')
@@ -1158,9 +1180,44 @@ class Notepad(tk.Tk):
         self.text.bind('<Button-3>', self._context_menu)
         self.text.bind('<Shift-F3>', lambda e: self._change_case())
         self.text.bind('<Escape>', lambda e: self._on_destroy())
+        self.text.bind('<KeyRelease>', lambda e: self._recognize_links())
 
-        self.text.insert('1.0', txt[:-1])
+        self.current_tab = 0
+        self.text.insert('1.0', data[self.current_tab]['data'])
+
+        self._recognize_links()
+
         self.update()
+
+    def _recognize_links(self):
+        self.text.tag_delete('link')
+        self.text.tag_config('link', foreground='blue', underline=True)
+        regex = r'(http|ftp|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])'
+        for match in re.finditer(regex, self.text.get('1.0', 'end')):
+            start = self.text.index(f'1.0 + {match.start()} chars')
+            end = self.text.index(f'{start} + {len(match.group(0))} chars')
+            self.text.tag_add('link', start, end)
+            self.text.tag_bind('link', '<Button-1>', lambda e: self._open_link(e))
+            self.text.tag_bind('link', '<Enter>', lambda e: self.text.config(cursor='hand2'))
+            self.text.tag_bind('link', '<Leave>', lambda e: self.text.config(cursor='xterm'))
+
+    def _open_link(self, event):
+        position = f'@{event.x},{event.y} + 1c'
+        index = self.text.index(position)
+        prevrange = self.text.tag_prevrange('link', index)
+        url = self.text.get(*prevrange)
+        webbrowser.open(url)
+
+    def _tab_change(self):
+        selected_tab = self.tabs.index(self.tabs.select())
+        current_text = self.text.get('1.0', 'end')
+
+        self.data[self.current_tab]['data'] = current_text
+        self.text.delete('1.0', 'end')
+        self.text.insert('1.0', self.data[selected_tab]['data'])
+        self._recognize_links()
+
+        self.current_tab = selected_tab
 
     def _context_menu(self, event):
         self.context_menu.entryconfigure('Выбрать всё', command=lambda: self.text.event_generate('<<SelectAll>>'))
