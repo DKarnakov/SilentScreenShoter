@@ -1183,7 +1183,6 @@ class Notepad(tk.Tk):
 
         self.current_tab = 0
         self.text.insert('1.0', data[self.current_tab]['data'])
-
         self._recognize_links()
 
         self.update()
