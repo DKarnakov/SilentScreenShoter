@@ -1,7 +1,3 @@
-import codecs
-import re
-import webbrowser
-
 from PIL import ImageGrab, ImageTk, ImageEnhance, ImageFilter, Image, ImageDraw
 import tkinter as tk
 from tkinter import ttk, filedialog, font
@@ -19,6 +15,9 @@ from colorsys import rgb_to_hsv, rgb_to_hls
 from shapely import LineString
 from shapely.geometry import Polygon
 from pyzbar.pyzbar import decode
+import codecs
+import re
+import webbrowser
 
 
 class Application(tk.Tk):
@@ -1109,14 +1108,14 @@ class Application(tk.Tk):
         data = []
         qr_codes = decode(self.screenshot_area)
         if qr_codes:
-            for record in qr_codes:
+            for qr_code in qr_codes:
                 draw = ImageDraw.Draw(self.screenshot_area)
-                x1 = record.rect.left
-                y1 = record.rect.top
-                x2 = x1 + record.rect.width
-                y2 = y1 + record.rect.height
-                draw.rectangle((x1, y1, x2, y2), fill='white', outline='white', width=5)
-                data.append({'type': record.type, 'data': codecs.decode(record.data)})
+                x1 = qr_code.rect.left
+                y1 = qr_code.rect.top
+                x2 = x1 + qr_code.rect.width
+                y2 = y1 + qr_code.rect.height
+                draw.rectangle((x1, y1, x2, y2), fill='black', outline='black', width=5)
+                data.append({'type': qr_code.type, 'data': codecs.decode(qr_code.data)})
 
         txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6').strip()
         if txt != '' or data == []:
@@ -1249,7 +1248,7 @@ class Notepad(tk.Tk):
 
 
 def launcher(_, __, button, pressed):
-    def ask_user(on_off):
+    def ask_user_about(on_off):
         action = f'{('Включить', 'Отключить')[on_off]} SilentScreenShoter?'
         header = 'SilentScreenShoter'
         return not on_off if ctypes.windll.user32.MessageBoxW(0, action, header, 0x00040004) == 6 else on_off
@@ -1268,13 +1267,13 @@ def launcher(_, __, button, pressed):
         RM_BUTTON = pressed
 
     if all([LM_BUTTON, MM_BUTTON, RM_BUTTON]):
-        STATUS = ask_user(STATUS)
+        STATUS = ask_user_about(STATUS)
     elif all([STATUS, LM_BUTTON, RM_BUTTON]):
         APPLICATION_IS_RUNNING = True
         app = Application()
         app.mainloop()
         if app.false_start:
-            STATUS = ask_user(STATUS)
+            STATUS = ask_user_about(STATUS)
         del app
         APPLICATION_IS_RUNNING = False
 
