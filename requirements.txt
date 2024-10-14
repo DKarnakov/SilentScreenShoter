@@ -2,3 +2,7 @@ pytesseract~=0.3.10
 pillow~=10.3.0
 pynput~=1.7.6
 shapely~=2.0.6
+pyzbar~=0.1.9
+screeninfo~=0.8.1
+numpy~=2.1.0
+scipy~=1.14.1
