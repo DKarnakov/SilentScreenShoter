@@ -1180,7 +1180,7 @@ class Notepad(tk.Tk):
                 self.tabs.pack(fill='x', side='top')
             self.tabs.bind('<<NotebookTabChanged>>', lambda e: self._tab_change())
 
-        self.text = tk.Text(wrap='word', font='Consolas 11', undo=True)
+        self.text = tk.Text(wrap='word', font='Consolas 11', undo=True, height=1)
         self.text.pack(fill='both', expand=True, side='top')
 
         self.context_menu = tk.Menu(self, tearoff=0)
@@ -1192,6 +1192,7 @@ class Notepad(tk.Tk):
 
         self.text.bind('<Button-3>', self._context_menu)
         self.text.bind('<Shift-F3>', lambda e: self._change_case())
+        self.text.bind('<Control-KeyPress>', lambda e: self._find_text(e))
         self.text.bind('<Escape>', lambda e: self._on_destroy())
         self.text.bind('<KeyRelease>', lambda e: self._recognize_links())
 
@@ -1199,7 +1200,61 @@ class Notepad(tk.Tk):
         self.text.insert('1.0', data[self.current_tab]['data'])
         self._recognize_links()
 
+        self.results = tk.Label()
+        self.find = tk.Entry()
+        self.find.bind('<KeyRelease>', lambda e: self._highlight_matches())
+        self.find.bind('<Escape>', lambda e: self._close_find())
+
         self.update()
+
+    def _find_text(self, event):
+
+        if event.keycode == 70:
+            self.find.pack(side='right', padx=5, pady=5)
+            self.results.pack(side='right', padx=5, pady=5)
+            self.find.focus_set()
+
+    def _close_find(self):
+        self.find.pack_forget()
+        self.results.pack_forget()
+        self.results.configure(text='')
+        self.text.tag_remove('highlight', '1.0', 'end')
+        self.text.focus_set()
+
+    def _highlight_matches(self):
+        def get_plural(amount, variants, absence=None):
+            assert len(variants) == 3
+            amount = abs(amount)
+
+            if amount % 10 == 1 and amount % 100 != 11:
+                plural = variants[0]
+            elif 2 <= amount % 10 <= 4 and (amount % 100 < 10 or amount % 100 >= 20):
+                plural = variants[1]
+            else:
+                plural = variants[2]
+
+            return f'{amount} {plural}' if amount or absence is None else absence
+
+        self.text.tag_remove('highlight', '1.0', 'end')
+        self.text.tag_config('highlight', background='yellow')
+        text_to_find = self.find.get()
+        if text_to_find == '':
+            self.results.configure(text='')
+            return
+        start_idx = '1.0'
+        result = 0
+        while True:
+            start_idx = self.text.search(text_to_find, start_idx, nocase=True, stopindex='end')
+            if start_idx:
+                end_idx = f'{start_idx}+{len(text_to_find)}c'
+                self.text.tag_add('highlight', start_idx, end_idx)
+                start_idx = end_idx
+                result += 1
+            else:
+                break
+
+        self.results['text'] = f'Найдено {get_plural(result, ['совпадение', 'совпадения', 'совпадений'])}'
+        self.results['foreground'] = 'black' if result != 0 else 'red'
 
     def _recognize_links(self):
         self.text.tag_delete('link')
