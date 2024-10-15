@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from PIL import ImageGrab, ImageTk, ImageEnhance, ImageFilter, Image, ImageDraw
 import tkinter as tk
 from tkinter import ttk, filedialog, font
@@ -77,7 +79,7 @@ class Application(tk.Tk):
         self.attributes('-fullscreen', True)
         self.attributes('-topmost', True)
 
-        self.canvas = tk.Canvas(self, cursor='cross', highlightthickness=0)
+        self.canvas = tk.Canvas(self, cursor='cross', highlightthickness=1)
         self.canvas.pack(side='top', fill='both', expand=True)
 
         self.canvas.bind('<ButtonPress-1>', lambda e: self._create_editor(e))
@@ -1151,6 +1153,18 @@ class Application(tk.Tk):
 
 
 class Notepad(tk.Tk):
+    @dataclass
+    class Link:
+        _widget: tk.Text = None
+        _x: int = None
+        _y: int = None
+
+        def __post_init__(self):
+            position = f'@{self._x},{self._y}'
+            index = self._widget.index(position)
+            self.range = self._widget.tag_prevrange('link', index)
+            self.url = self._widget.get(*self.range)
+
     def __init__(self, data, bbox):
         tk.Tk.__init__(self)
         self.title('SilentScreenShoter — Clipboard')
@@ -1189,22 +1203,29 @@ class Notepad(tk.Tk):
 
     def _recognize_links(self):
         self.text.tag_delete('link')
-        self.text.tag_config('link', foreground='blue', underline=True)
+        self.text.tag_config('link', foreground='black', underline=True)
         regex = r'(http|ftp|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])'
         for match in re.finditer(regex, self.text.get('1.0', 'end')):
             start = self.text.index(f'1.0 + {match.start()} chars')
             end = self.text.index(f'{start} + {len(match.group(0))} chars')
             self.text.tag_add('link', start, end)
             self.text.tag_bind('link', '<Button-1>', lambda e: self._open_link(e))
-            self.text.tag_bind('link', '<Enter>', lambda e: self.text.config(cursor='hand2'))
-            self.text.tag_bind('link', '<Leave>', lambda e: self.text.config(cursor='xterm'))
+            self.text.tag_bind('link', '<Enter>', lambda e: self._on_enter_link(e))
+            self.text.tag_bind('link', '<Leave>', lambda e: self._on_leave_link())
+
+    def _on_enter_link(self, event):
+        self.text['cursor'] = 'hand2'
+        link = self.Link(self.text, event.x, event.y)
+        self.text.tag_config('hover', foreground='blue', underline=True)
+        self.text.tag_add('hover', *link.range)
+
+    def _on_leave_link(self):
+        self.text['cursor'] = 'xterm'
+        self.text.tag_delete('hover')
 
     def _open_link(self, event):
-        position = f'@{event.x},{event.y} + 1c'
-        index = self.text.index(position)
-        prevrange = self.text.tag_prevrange('link', index)
-        url = self.text.get(*prevrange)
-        webbrowser.open(url)
+        link = self.Link(self.text, event.x, event.y)
+        webbrowser.open(link.url)
 
     def _tab_change(self):
         selected_tab = self.tabs.index(self.tabs.select())
@@ -1227,7 +1248,7 @@ class Notepad(tk.Tk):
         self.context_menu.entryconfigure('Вставить', command=lambda: self.text.event_generate('<<Paste>>'))
 
         copy_cut_state = 'normal' if self.text.tag_ranges('sel') else 'disabled'
-        paste_state = 'normal' if self.clipboard_get().strip() != '' else 'disabled'
+        paste_state = 'normal' if self.clipboard_get() != '' else 'disabled'
         self.context_menu.entryconfigure('Вырезать', state=copy_cut_state)
         self.context_menu.entryconfigure('Копировать', state=copy_cut_state)
         self.context_menu.entryconfigure('Вставить', state=paste_state)
@@ -1239,10 +1260,10 @@ class Notepad(tk.Tk):
                 self.context_menu.add_separator()
                 self.context_menu.add_command(label='Копировать ссылку')
             self.context_menu.entryconfigure('Копировать ссылку',
-                                             command=lambda: [prevrange := self.text.tag_prevrange('link', index),
-                                                              url := self.text.get(*prevrange),
+                                             command=lambda: [link := self.Link(self.text, event.x, event.y),
+                                                              print(link),
                                                               self.clipboard_clear(),
-                                                              self.clipboard_append(url)])
+                                                              self.clipboard_append(link.url)])
         else:
             try:
                 menu_idx = self.context_menu.index('Копировать ссылку')
@@ -1275,10 +1296,10 @@ class Notepad(tk.Tk):
 
 
 def launcher(_, __, button, pressed):
-    def ask_user_about(on_off):
-        action = f'{('Включить', 'Отключить')[on_off]} SilentScreenShoter?'
+    def ask_user_about(status):
+        action = f'{('Включить', 'Отключить')[status]} SilentScreenShoter?'
         header = 'SilentScreenShoter'
-        return not on_off if ctypes.windll.user32.MessageBoxW(0, action, header, 0x00040004) == 6 else on_off
+        return not status if ctypes.windll.user32.MessageBoxW(0, action, header, 0x00040004) == 6 else status
 
     global APPLICATION_IS_RUNNING
     global STATUS, LM_BUTTON, MM_BUTTON, RM_BUTTON
