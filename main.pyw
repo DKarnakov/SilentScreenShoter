@@ -1218,10 +1218,38 @@ class Notepad(tk.Tk):
         self.current_tab = selected_tab
 
     def _context_menu(self, event):
+        index = self.text.index(f'@{event.x},{event.y}')
+        self.text.mark_set('insert', index)
+
         self.context_menu.entryconfigure('Выбрать всё', command=lambda: self.text.event_generate('<<SelectAll>>'))
         self.context_menu.entryconfigure('Вырезать', command=lambda: self.text.event_generate('<<Cut>>'))
         self.context_menu.entryconfigure('Копировать', command=lambda: self.text.event_generate('<<Copy>>'))
         self.context_menu.entryconfigure('Вставить', command=lambda: self.text.event_generate('<<Paste>>'))
+
+        copy_cut_state = 'normal' if self.text.tag_ranges('sel') else 'disabled'
+        paste_state = 'normal' if self.clipboard_get().strip() != '' else 'disabled'
+        self.context_menu.entryconfigure('Вырезать', state=copy_cut_state)
+        self.context_menu.entryconfigure('Копировать', state=copy_cut_state)
+        self.context_menu.entryconfigure('Вставить', state=paste_state)
+
+        if 'link' in self.text.tag_names(index):
+            try:
+                self.context_menu.index('Копировать ссылку')
+            except tk.TclError:
+                self.context_menu.add_separator()
+                self.context_menu.add_command(label='Копировать ссылку')
+            self.context_menu.entryconfigure('Копировать ссылку',
+                                             command=lambda: [prevrange := self.text.tag_prevrange('link', index),
+                                                              url := self.text.get(*prevrange),
+                                                              self.clipboard_clear(),
+                                                              self.clipboard_append(url)])
+        else:
+            try:
+                menu_idx = self.context_menu.index('Копировать ссылку')
+                self.context_menu.delete(menu_idx - 1, menu_idx)
+            except tk.TclError:
+                pass
+
         self.context_menu.tk.call('tk_popup', self.context_menu, event.x_root, event.y_root)
 
     def _change_case(self):
