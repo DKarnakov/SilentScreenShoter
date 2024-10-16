@@ -1,5 +1,3 @@
-from dataclasses import dataclass
-
 from PIL import ImageGrab, ImageTk, ImageEnhance, ImageFilter, Image, ImageDraw
 import tkinter as tk
 from tkinter import ttk, filedialog, font
@@ -20,6 +18,8 @@ from pyzbar.pyzbar import decode
 import codecs
 import re
 import webbrowser
+from dataclasses import dataclass
+from tkinter.scrolledtext import ScrolledText as sText
 
 
 class Application(tk.Tk):
@@ -1180,7 +1180,7 @@ class Notepad(tk.Tk):
                 self.tabs.pack(fill='x', side='top')
             self.tabs.bind('<<NotebookTabChanged>>', lambda e: self._tab_change())
 
-        self.text = tk.Text(wrap='word', font='Consolas 11', undo=True, height=1)
+        self.text = sText(wrap='word', font='Consolas 11', undo=True, height=1)
         self.text.pack(fill='both', expand=True, side='top')
 
         self.context_menu = tk.Menu(self, tearoff=0)
@@ -1192,7 +1192,7 @@ class Notepad(tk.Tk):
 
         self.text.bind('<Button-3>', self._context_menu)
         self.text.bind('<Shift-F3>', lambda e: self._change_case())
-        self.text.bind('<Control-KeyPress>', lambda e: self._find_text(e))
+        self.text.bind('<Control-KeyPress>', lambda e: self._find_text() if e.keycode == 70 else None)
         self.text.bind('<Escape>', lambda e: self._on_destroy())
         self.text.bind('<KeyRelease>', lambda e: self._recognize_links())
 
@@ -1201,21 +1201,25 @@ class Notepad(tk.Tk):
         self._recognize_links()
 
         self.results = tk.Label()
-        self.find = tk.Entry()
-        self.find.bind('<KeyRelease>', lambda e: self._highlight_matches())
-        self.find.bind('<Escape>', lambda e: self._close_find())
+        self.find_window = tk.Entry()
+        self.find_window.bind('<KeyRelease>', lambda e: self._highlight_matches())
+        self.find_window.bind('<Escape>', lambda e: self._close_find())
+        self.find_window.bind('<Control-KeyPress>', lambda e: self._close_find() if e.keycode == 70 else None)
 
         self.update()
 
-    def _find_text(self, event):
-
-        if event.keycode == 70:
-            self.find.pack(side='right', padx=5, pady=5)
-            self.results.pack(side='right', padx=5, pady=5)
-            self.find.focus_set()
+    def _find_text(self):
+        self.find_window.pack(side='right', padx=5, pady=5)
+        self.results.pack(side='right', padx=5, pady=5)
+        if sel_range := self.text.tag_ranges('sel'):
+            self.find_window.delete(0, 'end')
+            self.find_window.insert(0, self.text.get(*sel_range))
+        self.find_window.select_range(0, 'end')
+        self.find_window.focus_set()
+        self.find_window.icursor('end')
 
     def _close_find(self):
-        self.find.pack_forget()
+        self.find_window.pack_forget()
         self.results.pack_forget()
         self.results.configure(text='')
         self.text.tag_remove('highlight', '1.0', 'end')
@@ -1235,9 +1239,15 @@ class Notepad(tk.Tk):
 
             return f'{amount} {plural}' if amount or absence is None else absence
 
-        self.text.tag_remove('highlight', '1.0', 'end')
+        try:
+            self.find_window.pack_info()
+        except tk.TclError:
+            return
+        finally:
+            self.text.tag_remove('highlight', '1.0', 'end')
+
         self.text.tag_config('highlight', background='yellow')
-        text_to_find = self.find.get()
+        text_to_find = self.find_window.get()
         if text_to_find == '':
             self.results.configure(text='')
             return
@@ -1254,7 +1264,8 @@ class Notepad(tk.Tk):
                 break
 
         self.results['text'] = f'Найдено {get_plural(result, ['совпадение', 'совпадения', 'совпадений'])}'
-        self.results['foreground'] = 'black' if result != 0 else 'red'
+        self.results['text'] = '' if result == 0 else self.results['text']
+        self.find_window['foreground'] = 'black' if result != 0 else 'red'
 
     def _recognize_links(self):
         self.text.tag_delete('link')
@@ -1284,12 +1295,13 @@ class Notepad(tk.Tk):
 
     def _tab_change(self):
         selected_tab = self.tabs.index(self.tabs.select())
-        current_text = self.text.get('1.0', 'end')
-
+        current_text = self.text.get('1.0', 'end').rstrip()
         self.data[self.current_tab]['data'] = current_text
         self.text.delete('1.0', 'end')
+        self.text.tag_delete('all')
         self.text.insert('1.0', self.data[selected_tab]['data'])
         self._recognize_links()
+        self._highlight_matches()
 
         self.current_tab = selected_tab
 
@@ -1316,7 +1328,6 @@ class Notepad(tk.Tk):
                 self.context_menu.add_command(label='Копировать ссылку')
             self.context_menu.entryconfigure('Копировать ссылку',
                                              command=lambda: [link := self.Link(self.text, event.x, event.y),
-                                                              print(link),
                                                               self.clipboard_clear(),
                                                               self.clipboard_append(link.url)])
         else:
