@@ -1226,9 +1226,8 @@ class Notepad(tk.Tk):
         self.text.focus_set()
 
     def _highlight_matches(self):
-        def get_plural(amount, variants, absence=None):
+        def get_plural(amount, variants):
             assert len(variants) == 3
-            amount = abs(amount)
 
             if amount % 10 == 1 and amount % 100 != 11:
                 plural = variants[0]
@@ -1237,7 +1236,7 @@ class Notepad(tk.Tk):
             else:
                 plural = variants[2]
 
-            return f'{amount} {plural}' if amount or absence is None else absence
+            return f'{amount} {plural}'
 
         try:
             self.find_window.pack_info()
