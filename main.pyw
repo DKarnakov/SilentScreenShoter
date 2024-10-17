@@ -18,7 +18,6 @@ from pyzbar.pyzbar import decode
 import codecs
 import re
 import webbrowser
-from dataclasses import dataclass
 from tkinter.scrolledtext import ScrolledText as sText
 
 
@@ -85,7 +84,7 @@ class Application(tk.Tk):
         self.canvas.bind('<ButtonPress-1>', lambda e: self._create_editor(e))
         self.canvas.bind('<B1-Motion>', lambda e: self._set_viewport(e))
         self.canvas.bind('<ButtonRelease-1>', lambda e: self._start_editing())
-        self.canvas.bind('<Button-3>', lambda e: (setattr(self, 'false_start', True), self.destroy()))
+        self.canvas.bind('<Button-3>', lambda e: [setattr(self, 'false_start', True), self.destroy()])
 
         self.x1 = self.y1 = None
         self.x2 = self.y2 = None
@@ -130,6 +129,10 @@ class Application(tk.Tk):
         self.bind('<F6>', lambda e: self._set_number())
         self.bind('<F7>', lambda e: self._set_blur())
         self.bind('<Escape>', lambda e: self.destroy())
+
+        self.bind('<Key>', lambda e: [setattr(self, 'color', int(e.keysym)-1),
+                                      self.color_panel.config(background=self.palette[self.color])
+                                      if e.char in '123456789' else None])
 
         self.bind('<KeyPress-Shift_L>', lambda e: done_txt.set('Сохранить'))
         self.bind('<KeyRelease-Shift_L>', lambda e: done_txt.set('Ok'))
@@ -680,7 +683,9 @@ class Application(tk.Tk):
 
     def _ruler_stop(self):
         self.canvas.delete('ruler')
-        self.unbind('<Key>')
+        self.bind('<Key>', lambda e: [setattr(self, 'color', int(e.keysym) - 1),
+                                      self.color_panel.config(background=self.palette[self.color])
+                                      if e.char in '123456789' else None])
         self.canvas.tag_unbind('editor', '<ButtonPress-3>')
         if self.callback_button:
             self.callback_button.invoke()
@@ -973,7 +978,9 @@ class Application(tk.Tk):
         self._redraw_text()
 
     def _text_stop(self):
-        self.unbind('<Key>')
+        self.bind('<Key>', lambda e: [setattr(self, 'color', int(e.keysym) - 1),
+                                      self.color_panel.config(background=self.palette[self.color])
+                                      if e.char in '123456789' else None])
         self.unbind('<Control-MouseWheel>')
         self.bind('<Control-KeyPress>', lambda e: self._control(e))
         self.bind('<Escape>', lambda e: self.destroy())
@@ -983,7 +990,7 @@ class Application(tk.Tk):
         try:
             self.canvas.delete(self.text_cursor)
         except AttributeError:
-            ...
+            pass
 
     def _set_blur(self):
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._blur_create(e))
@@ -1153,17 +1160,13 @@ class Application(tk.Tk):
 
 
 class Notepad(tk.Tk):
-    @dataclass
-    class Link:
-        _widget: tk.Text = None
-        _x: int = None
-        _y: int = None
 
-        def __post_init__(self):
-            position = f'@{self._x},{self._y}'
-            index = self._widget.index(position)
-            self.range = self._widget.tag_prevrange('link', index)
-            self.url = self._widget.get(*self.range)
+    class Link:
+        def __init__(self, widget, x, y):
+            position = f'@{x},{y}'
+            index = widget.index(position)
+            self.range = widget.tag_prevrange('link', index)
+            self.url = widget.get(*self.range)
 
     def __init__(self, data, bbox):
         tk.Tk.__init__(self)
