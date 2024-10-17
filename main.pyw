@@ -1189,8 +1189,6 @@ class Notepad(tk.Tk):
         self.context_menu.add_command(label='Вырезать', accelerator='Ctrl+X')
         self.context_menu.add_command(label='Копировать', accelerator='Ctrl+C')
         self.context_menu.add_command(label='Вставить', accelerator='Ctrl+V')
-        self.context_menu.add_separator()
-        self.context_menu.add_command(label='Поиск в Яндекс')
 
         self.text.bind('<Button-3>', self._context_menu)
         self.text.bind('<Shift-F3>', lambda e: self._change_case())
@@ -1315,19 +1313,27 @@ class Notepad(tk.Tk):
         self.context_menu.entryconfigure('Вырезать', command=lambda: self.text.event_generate('<<Cut>>'))
         self.context_menu.entryconfigure('Копировать', command=lambda: self.text.event_generate('<<Copy>>'))
         self.context_menu.entryconfigure('Вставить', command=lambda: self.text.event_generate('<<Paste>>'))
-        try:
-            self.context_menu.entryconfigure('Поиск в Яндекс', state='normal')
-            url = 'https://yandex.ru/search/?text=' + self.text.selection_get()
-        except tk.TclError:
-            self.context_menu.entryconfigure('Поиск в Яндекс', state='disabled')
-            url = None
-        self.context_menu.entryconfigure('Поиск в Яндекс', command=lambda: webbrowser.open(url))
 
         selection_state = 'normal' if self.text.tag_ranges('sel') else 'disabled'
         clipboard_state = 'normal' if self.clipboard_get() != '' else 'disabled'
         self.context_menu.entryconfigure('Вырезать', state=selection_state)
         self.context_menu.entryconfigure('Копировать', state=selection_state)
         self.context_menu.entryconfigure('Вставить', state=clipboard_state)
+
+        if 'sel' in self.text.tag_names(index):
+            url = 'https://yandex.ru/search/?text=' + self.text.selection_get()
+            try:
+                self.context_menu.index('Поиск в Яндекс')
+            except tk.TclError:
+                self.context_menu.add_separator()
+                self.context_menu.add_command(label='Поиск в Яндекс')
+            self.context_menu.entryconfigure('Поиск в Яндекс', command=lambda: webbrowser.open(url))
+        else:
+            try:
+                menu_idx = self.context_menu.index('Поиск в Яндекс')
+                self.context_menu.delete(menu_idx - 1, menu_idx)
+            except tk.TclError:
+                pass
 
         if 'link' in self.text.tag_names(index):
             try:
