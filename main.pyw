@@ -129,9 +129,8 @@ class Application(tk.Tk):
         self.bind('<F7>', lambda e: self._set_blur())
         self.bind('<Escape>', lambda e: self.destroy())
 
-        self.bind('<Key>', lambda e: [setattr(self, 'color', int(e.keysym)-1),
-                                      self.color_panel.config(background=self.palette[self.color])
-                                      if e.char in '123456789' else None])
+        self.bind('<Key>', lambda e: self._set_color(e.char) if e.char in '1234567890' else None)
+        # self.bind('<0>', lambda e: self._add_color())
 
         self.bind('<KeyPress-Shift_L>', lambda e: done_txt.set('Сохранить'))
         self.bind('<KeyRelease-Shift_L>', lambda e: done_txt.set('Ok'))
@@ -267,7 +266,7 @@ class Application(tk.Tk):
         self.bind('<KeyRelease-Alt_L>', lambda e: self.canvas.itemconfig('precision', state='hidden'))
         self.bind('<KeyPress-Alt_R>', lambda e: self._precision())
         self.bind('<KeyRelease-Alt_R>', lambda e: self.canvas.itemconfig('precision', state='hidden'))
-        self.bind('<Alt-Button-1>', lambda e: self._add_color())
+        self.bind('<Alt-Button-1>', lambda e: self._set_color(color='0'))
         self.bind('<Control-KeyPress>', lambda e: self._control(e))
 
         self.canvas.tag_bind('editor', '<ButtonPress-2>', lambda e: self._new_item(e))
@@ -311,10 +310,15 @@ class Application(tk.Tk):
         self.canvas.tag_raise('precision')
         self.canvas.tag_raise('z_33')
 
-    def _add_color(self):
-        color = self.canvas.itemcget('z_33', 'fill')
-        if color != '':
-            self.color_panel['background'] = color
+    def _set_color(self, color):
+        if color in '123456789':
+            color = self.palette[int(color) - 1]
+        elif color == '0':
+            xp = self.winfo_pointerx() - self.winfo_rootx()
+            yp = self.winfo_pointery() - self.winfo_rooty()
+            r, g, b = self.image.getpixel((xp, yp))
+            color = f'#{r:02x}{g:02x}{b:02x}'
+        self.color_panel['background'] = color
 
     def _set_viewport(self, event):
         x1, x2, y1, y2 = self.x1, event.x, self.y1, event.y
@@ -682,9 +686,7 @@ class Application(tk.Tk):
 
     def _ruler_stop(self):
         self.canvas.delete('ruler')
-        self.bind('<Key>', lambda e: [setattr(self, 'color', int(e.keysym) - 1),
-                                      self.color_panel.config(background=self.palette[self.color])
-                                      if e.char in '123456789' else None])
+        self.bind('<Key>', lambda e: self._set_color(e.char) if e.char in '1234567890' else None)
         self.canvas.tag_unbind('editor', '<ButtonPress-3>')
         if self.callback_button:
             self.callback_button.invoke()
@@ -977,9 +979,7 @@ class Application(tk.Tk):
         self._redraw_text()
 
     def _text_stop(self):
-        self.bind('<Key>', lambda e: [setattr(self, 'color', int(e.keysym) - 1),
-                                      self.color_panel.config(background=self.palette[self.color])
-                                      if e.char in '123456789' else None])
+        self.bind('<Key>', lambda e: self._set_color(e.char) if e.char in '1234567890' else None)
         self.unbind('<Control-MouseWheel>')
         self.bind('<Control-KeyPress>', lambda e: self._control(e))
         self.bind('<Escape>', lambda e: self.destroy())
