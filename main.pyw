@@ -94,7 +94,6 @@ class Application(tk.Tk):
         self.viewport = None
         self.border = None
         self.palette = ['red', 'orange', 'yellow', 'lime', 'cyan', 'blue', 'magenta', 'white', 'black']
-        self.colors = len(self.palette)
         self.color = 0
         self.num = 1
         self.corner = {}
@@ -116,7 +115,7 @@ class Application(tk.Tk):
         self.text_button = ttk.Button(self.panel, text='Надпись', command=lambda: self._set_text())
         self.num_button = ttk.Button(self.panel, text=self.num, command=lambda: self._set_number())
         self.blur_button = ttk.Button(self.panel, text='Размытие', command=lambda: self._set_blur())
-        self.color_panel = ttk.Label(self.panel, width=3, background=self.palette[self.color % self.colors])
+        self.color_panel = ttk.Label(self.panel, width=3, background=self.palette[self.color])
         self.recognize_button = ttk.Button(self.panel, text='Распознать', command=lambda: self._recognize())
         done_txt = tk.StringVar(value='Ok')
         self.done_button = ttk.Button(self.panel, textvariable=done_txt, command=lambda: self._done())
@@ -1109,9 +1108,9 @@ class Application(tk.Tk):
 
     def _change_color(self, event):
         self.color += 1 if event.delta > 0 else -1
-        self.color_panel['background'] = self.palette[self.color % self.colors]
+        self.color_panel['background'] = self.palette[self.color % 9]
         if self.text_edit:
-            self.canvas.itemconfig(self.text, fill=self.palette[self.color % self.colors])
+            self.canvas.itemconfig(self.text, fill=self.palette[self.color % 9])
 
     def _recognize(self):
         data = []
@@ -1193,6 +1192,11 @@ class Notepad(tk.Tk):
         self.context_menu.add_command(label='Копировать', accelerator='Ctrl+C')
         self.context_menu.add_command(label='Вставить', accelerator='Ctrl+V')
 
+        self.context_menu.entryconfigure('Выбрать всё', command=lambda: self.text.event_generate('<<SelectAll>>'))
+        self.context_menu.entryconfigure('Вырезать', command=lambda: self.text.event_generate('<<Cut>>'))
+        self.context_menu.entryconfigure('Копировать', command=lambda: self.text.event_generate('<<Copy>>'))
+        self.context_menu.entryconfigure('Вставить', command=lambda: self.text.event_generate('<<Paste>>'))
+
         self.text.bind('<Button-3>', self._context_menu)
         self.text.bind('<Shift-F3>', lambda e: self._change_case())
         self.text.bind('<Control-KeyPress>', lambda e: self._find_text() if e.keycode == 70 else None)
@@ -1231,14 +1235,12 @@ class Notepad(tk.Tk):
     def _highlight_matches(self):
         def get_plural(amount, variants):
             assert len(variants) == 3
-
             if amount % 10 == 1 and amount % 100 != 11:
                 plural = variants[0]
             elif 2 <= amount % 10 <= 4 and (amount % 100 < 10 or amount % 100 >= 20):
                 plural = variants[1]
             else:
                 plural = variants[2]
-
             return f'{amount} {plural}'
 
         try:
@@ -1310,11 +1312,6 @@ class Notepad(tk.Tk):
     def _context_menu(self, event):
         index = self.text.index(f'@{event.x},{event.y}')
         self.text.mark_set('insert', index)
-
-        self.context_menu.entryconfigure('Выбрать всё', command=lambda: self.text.event_generate('<<SelectAll>>'))
-        self.context_menu.entryconfigure('Вырезать', command=lambda: self.text.event_generate('<<Cut>>'))
-        self.context_menu.entryconfigure('Копировать', command=lambda: self.text.event_generate('<<Copy>>'))
-        self.context_menu.entryconfigure('Вставить', command=lambda: self.text.event_generate('<<Paste>>'))
 
         selection_state = 'normal' if self.text.tag_ranges('sel') else 'disabled'
         clipboard_state = 'normal' if self.clipboard_get() != '' else 'disabled'
