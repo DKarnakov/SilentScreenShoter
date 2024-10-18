@@ -1,24 +1,24 @@
-from PIL import ImageGrab, ImageTk, ImageEnhance, ImageFilter, Image, ImageDraw
-import tkinter as tk
-from tkinter import ttk, filedialog, font
-import pytesseract
-from io import BytesIO
-import win32clipboard
-from math import sqrt, atan2, pi, sin, cos, dist
-import ctypes
-from functools import partial
-from pynput import mouse
 import argparse
+import codecs
+import ctypes
 import os
+import pytesseract
+import re
 import time
+import tkinter as tk
+import webbrowser
+import win32clipboard
 from colorsys import rgb_to_hsv, rgb_to_hls
+from functools import partial
+from io import BytesIO
+from math import sqrt, atan2, pi, sin, cos, dist
+from tkinter import ttk, filedialog, font
+from tkinter.scrolledtext import ScrolledText as sText
+from PIL import ImageGrab, ImageTk, ImageEnhance, ImageFilter, Image, ImageDraw
+from pynput import mouse
+from pyzbar.pyzbar import decode
 from shapely import LineString
 from shapely.geometry import Polygon
-from pyzbar.pyzbar import decode
-import codecs
-import re
-import webbrowser
-from tkinter.scrolledtext import ScrolledText as sText
 
 
 class Application(tk.Tk):
@@ -128,9 +128,7 @@ class Application(tk.Tk):
         self.bind('<F6>', lambda e: self._set_number())
         self.bind('<F7>', lambda e: self._set_blur())
         self.bind('<Escape>', lambda e: self.destroy())
-
         self.bind('<Key>', lambda e: self._set_color(e.char) if e.char in '1234567890' else None)
-        # self.bind('<0>', lambda e: self._add_color())
 
         self.bind('<KeyPress-Shift_L>', lambda e: done_txt.set('Сохранить'))
         self.bind('<KeyRelease-Shift_L>', lambda e: done_txt.set('Ok'))
@@ -311,14 +309,16 @@ class Application(tk.Tk):
         self.canvas.tag_raise('z_33')
 
     def _set_color(self, color):
-        if color in '123456789':
-            color = self.palette[int(color) - 1]
+        if color == '':
+            return
+        elif color in '123456789':
+            self.color = int(color) - 1
+            self.color_panel['background'] = self.palette[self.color]
         elif color == '0':
-            xp = self.winfo_pointerx() - self.winfo_rootx()
-            yp = self.winfo_pointery() - self.winfo_rooty()
-            r, g, b = self.image.getpixel((xp, yp))
-            color = f'#{r:02x}{g:02x}{b:02x}'
-        self.color_panel['background'] = color
+            x = self.winfo_pointerx() - self.winfo_rootx()
+            y = self.winfo_pointery() - self.winfo_rooty()
+            r, g, b = self.image.getpixel((x, y))
+            self.color_panel['background'] = f'#{r:02x}{g:02x}{b:02x}'
 
     def _set_viewport(self, event):
         x1, x2, y1, y2 = self.x1, event.x, self.y1, event.y
