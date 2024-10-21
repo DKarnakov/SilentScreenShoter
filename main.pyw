@@ -78,7 +78,7 @@ class Application(tk.Tk):
         self.attributes('-fullscreen', True)
         self.attributes('-topmost', True)
 
-        self.canvas = tk.Canvas(self, cursor='cross', highlightthickness=1)
+        self.canvas = tk.Canvas(self, cursor='cross', highlightthickness=0)
         self.canvas.pack(side='top', fill='both', expand=True)
 
         self.canvas.bind('<ButtonPress-1>', lambda e: self._create_editor(e))
