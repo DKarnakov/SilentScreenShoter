@@ -1169,7 +1169,7 @@ class Notepad(tk.Tk):
 
     def __init__(self, data, bbox):
         tk.Tk.__init__(self)
-        self.title('SilentScreenShoter — Clipboard')
+        self.title('SilentScreenShoter — Буфер обмена')
         self.after(1, lambda: self.text.focus_force())
         self.geometry(f'{bbox[2] - bbox[0]}x{bbox[3] - bbox[1]}+{bbox[0]}+{bbox[1] - 22}')
         self.protocol('WM_DELETE_WINDOW', self._on_destroy)
