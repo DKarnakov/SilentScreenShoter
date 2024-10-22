@@ -1370,7 +1370,7 @@ class Notepad(tk.Tk):
 
     def _on_destroy(self):
         self.clipboard_clear()
-        self.clipboard_append(self.text.get('1.0', 'end'))
+        self.clipboard_append(self.text.get('1.0', 'end-1c'))
         self.update()
         self.destroy()
 
