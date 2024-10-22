@@ -1299,10 +1299,10 @@ class Notepad(tk.Tk):
 
     def _tab_change(self):
         selected_tab = self.tabs.index(self.tabs.select())
-        current_text = self.text.get('1.0', 'end').rstrip()
+        self.text.tag_delete('all')
+        current_text = self.text.get('1.0', 'end-1c')
         self.data[self.current_tab]['data'] = current_text
         self.text.delete('1.0', 'end')
-        self.text.tag_delete('all')
         self.text.insert('1.0', self.data[selected_tab]['data'])
         self._recognize_links()
         self._highlight_matches()
