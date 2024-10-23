@@ -1201,6 +1201,7 @@ class Notepad(tk.Tk):
         self.text.bind('<Shift-F3>', lambda e: self._change_case())
         self.text.bind('<Control-KeyPress>', lambda e: self._find_text() if e.keycode == 70 else None)
         self.text.bind('<Escape>', lambda e: self._on_destroy())
+        self.text.bind('<KeyPress>', lambda e: self._key_handler(e))
         self.text.bind('<KeyRelease>', lambda e: self._recognize_links())
 
         self.current_tab = 0
@@ -1271,6 +1272,49 @@ class Notepad(tk.Tk):
         self.results['text'] = '' if result == 0 else self.results['text']
         self.find_window['foreground'] = 'black' if result != 0 else 'red'
 
+    @staticmethod
+    def _layout():
+        u = ctypes.windll.LoadLibrary('user32.dll')
+        pf = getattr(u, 'GetKeyboardLayout')
+        if hex(pf(0)) == '0x4190419':
+            return 'ru'
+        if hex(pf(0)) == '0x4090409':
+            return 'en'
+
+    def _key_handler(self, event):
+        position = self.text.index('insert')
+        try:
+            sel_start, sel_end = self.text.tag_ranges('sel')
+            selected_text = self.text.get(sel_start, sel_end)
+            if event.char == '"' and self._layout() == 'en':
+                replace_text = f'"{selected_text}"'
+            elif event.char == '"' and self._layout() == 'ru':
+                replace_text = f'«{selected_text}»'
+            elif event.char == "'":
+                replace_text = f"'{selected_text}'"
+            elif event.char == '{':
+                replace_text = f'{{{selected_text}}}'
+            elif event.char == '[':
+                replace_text = f'[{selected_text}]'
+            elif event.char == '(':
+                replace_text = f'({selected_text})'
+            else:
+                return
+            self.text.replace(sel_start, sel_end, replace_text)
+            self.text.tag_add('sel', f'{sel_start}+1c', f'{sel_end}+1c')
+            self.text.mark_set('insert',f'{position}+1c')
+            return 'break'
+        except ValueError:
+            if event.char == '"' and self._layout() == 'ru':
+                char_before = ord(self.text.get(f'{position}-1c'))
+                char_after = ord(self.text.get(f'{position}'))
+                if char_before in [10, 32, 9]: # Enter, Space, Tab
+                    self.text.insert(position, '«')
+                    return 'break'
+                elif char_after in [10, 32, 9]: # Enter, Space, Tab
+                    self.text.insert(position, '»')
+                    return 'break'
+
     def _recognize_links(self):
         self.text.tag_delete('link')
         self.text.tag_config('link', foreground='black', underline=True)
@@ -1312,6 +1356,9 @@ class Notepad(tk.Tk):
     def _context_menu(self, event):
         index = self.text.index(f'@{event.x},{event.y}')
         self.text.mark_set('insert', index)
+        if 'sel' not in self.text.tag_names(index):
+            self.text.tag_remove('sel', '1.0', 'end')
+            self.update()
 
         selection_state = 'normal' if self.text.tag_ranges('sel') else 'disabled'
         clipboard_state = 'normal' if self.clipboard_get() != '' else 'disabled'
@@ -1354,19 +1401,22 @@ class Notepad(tk.Tk):
         self.context_menu.tk.call('tk_popup', self.context_menu, event.x_root, event.y_root)
 
     def _change_case(self):
-        sel_start, sel_end = self.text.tag_ranges('sel')
-        if sel_start and sel_end:
-            selected_text = self.text.get(sel_start, sel_end)
-            if selected_text.islower():
-                replace_text = selected_text.upper()
-            elif selected_text.isupper() and selected_text != selected_text.title():
-                replace_text = selected_text.title()
-            elif selected_text.istitle() and selected_text != selected_text.capitalize():
-                replace_text = selected_text.capitalize()
-            else:
-                replace_text = selected_text.lower()
-            self.text.replace(sel_start, sel_end, replace_text)
-            self.text.tag_add('sel', sel_start, sel_end)
+        try:
+            sel_start, sel_end = self.text.tag_ranges('sel')
+        except ValueError:
+            return
+
+        selected_text = self.text.get(sel_start, sel_end)
+        if selected_text.islower():
+            replace_text = selected_text.upper()
+        elif selected_text.isupper() and selected_text != selected_text.title():
+            replace_text = selected_text.title()
+        elif selected_text.istitle() and selected_text != selected_text.capitalize():
+            replace_text = selected_text.capitalize()
+        else:
+            replace_text = selected_text.lower()
+        self.text.replace(sel_start, sel_end, replace_text)
+        self.text.tag_add('sel', sel_start, sel_end)
 
     def _on_destroy(self):
         self.clipboard_clear()
