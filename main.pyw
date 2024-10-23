@@ -1214,6 +1214,10 @@ class Notepad(tk.Tk):
         self.find_window.bind('<Escape>', lambda e: self._close_find())
         self.find_window.bind('<Control-KeyPress>', lambda e: self._close_find() if e.keycode == 70 else None)
 
+        self.text.tag_config('link', foreground='black', underline=True)
+        self.text.tag_config('hover', foreground='blue', underline=True)
+        self.text.tag_config('highlight', background='yellow')
+
         self.update()
 
     def _find_text(self):
@@ -1251,7 +1255,6 @@ class Notepad(tk.Tk):
         finally:
             self.text.tag_remove('highlight', '1.0', 'end')
 
-        self.text.tag_config('highlight', background='yellow')
         text_to_find = self.find_window.get()
         if text_to_find == '':
             self.results.configure(text='')
@@ -1302,22 +1305,21 @@ class Notepad(tk.Tk):
                 return
             self.text.replace(sel_start, sel_end, replace_text)
             self.text.tag_add('sel', f'{sel_start}+1c', f'{sel_end}+1c')
-            self.text.mark_set('insert',f'{position}+1c')
+            self.text.mark_set('insert', f'{position}+1c')
             return 'break'
         except ValueError:
             if event.char == '"' and self._layout() == 'ru':
                 char_before = ord(self.text.get(f'{position}-1c'))
                 char_after = ord(self.text.get(f'{position}'))
-                if char_before in [10, 32, 9]: # Enter, Space, Tab
+                if char_before in [10, 32, 9]:  # Enter, Space, Tab
                     self.text.insert(position, '«')
                     return 'break'
-                elif char_after in [10, 32, 9]: # Enter, Space, Tab
+                elif char_after in [10, 32, 9]:  # Enter, Space, Tab
                     self.text.insert(position, '»')
                     return 'break'
 
     def _recognize_links(self):
-        self.text.tag_delete('link')
-        self.text.tag_config('link', foreground='black', underline=True)
+        self.text.tag_remove('link', '1.0', 'end')
         regex = r'(http|ftp|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])'
         for match in re.finditer(regex, self.text.get('1.0', 'end')):
             start = self.text.index(f'1.0 + {match.start()} chars')
@@ -1330,12 +1332,11 @@ class Notepad(tk.Tk):
     def _on_enter_link(self, event):
         self.text['cursor'] = 'hand2'
         link = self.Link(self.text, event.x, event.y)
-        self.text.tag_config('hover', foreground='blue', underline=True)
         self.text.tag_add('hover', *link.range)
 
     def _on_leave_link(self):
         self.text['cursor'] = 'xterm'
-        self.text.tag_delete('hover')
+        self.text.tag_remove('hover', '1.0', 'end')
 
     def _open_link(self, event):
         link = self.Link(self.text, event.x, event.y)
@@ -1343,7 +1344,7 @@ class Notepad(tk.Tk):
 
     def _tab_change(self):
         selected_tab = self.tabs.index(self.tabs.select())
-        self.text.tag_delete('all')
+        self.text.tag_remove('all', '1.0', 'end')
         current_text = self.text.get('1.0', 'end-1c')
         self.data[self.current_tab]['data'] = current_text
         self.text.delete('1.0', 'end')
