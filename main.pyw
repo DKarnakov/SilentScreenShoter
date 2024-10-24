@@ -1168,7 +1168,7 @@ class Notepad(tk.Tk):
                 self.range = widget.tag_prevrange('link', index)
                 self.url = widget.get(*self.range)
             except TypeError:
-                self.range = (position, position)
+                self.range = (index, index)
                 self.url = ''
 
     def __init__(self, data, bbox):
