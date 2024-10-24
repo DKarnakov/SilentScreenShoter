@@ -1277,14 +1277,13 @@ class Notepad(tk.Tk):
 
     @staticmethod
     def _layout():
-        u = ctypes.windll.LoadLibrary('user32.dll')
-        pf = getattr(u, 'GetKeyboardLayout')
+        user32_dll = ctypes.windll.LoadLibrary('user32.dll')
+        func_ptr = user32_dll.GetKeyboardLayout
+        code_page = hex(func_ptr(0))
         layouts = {'0x4190419': 'ru',
                    '0x4090409': 'en'}
-        try:
-            return layouts[hex(pf(0))]
-        except KeyError:
-            return None
+        layout = layouts[code_page] if code_page in layouts else None
+        return layout
 
     def _key_handler(self, event):
         position = self.text.index('insert')
@@ -1315,10 +1314,10 @@ class Notepad(tk.Tk):
                 char_before = ord(self.text.get(f'{position}-1c'))
                 char_after = ord(self.text.get(f'{position}'))
                 if char_before in [10, 32, 9]:  # Enter, Space, Tab
-                    self.text.insert(position, '«')
+                    self.text.insert(position, chr(171))
                     return 'break'
                 elif char_after in [10, 32, 9]:  # Enter, Space, Tab
-                    self.text.insert(position, '»')
+                    self.text.insert(position, chr(187))
                     return 'break'
 
     def _recognize_links(self):
