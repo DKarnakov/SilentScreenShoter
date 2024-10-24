@@ -1163,13 +1163,9 @@ class Notepad(tk.Tk):
     class Link:
         def __init__(self, widget, x, y):
             position = f'@{x},{y}'
-            index = widget.index(position)
-            try:
-                self.range = widget.tag_prevrange('link', index)
-                self.url = widget.get(*self.range)
-            except TypeError:
-                self.range = (index, index)
-                self.url = ''
+            index = f'{widget.index(position)}+1c'
+            self.range = widget.tag_prevrange('link', index)
+            self.url = widget.get(*self.range)
 
     def __init__(self, data, bbox):
         tk.Tk.__init__(self)
