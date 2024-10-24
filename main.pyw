@@ -1291,7 +1291,7 @@ class Notepad(tk.Tk):
             sel_start, sel_end = self.text.tag_ranges('sel')
             selected_text = self.text.get(sel_start, sel_end)
             if event.char == '"':
-                if self._layout() == 'ru':
+                if self._layout() in ['ru',]:
                     replace_text = f'«{selected_text}»'
                 else:
                     replace_text = f'"{selected_text}"'
@@ -1310,7 +1310,7 @@ class Notepad(tk.Tk):
             self.text.mark_set('insert', f'{position}+1c')
             return 'break'
         except ValueError:
-            if event.char == '"' and self._layout() == 'ru':
+            if event.char == '"' and self._layout() in ['ru',]:
                 char_before = ord(self.text.get(f'{position}-1c'))
                 char_after = ord(self.text.get(f'{position}'))
                 if char_before in [10, 32, 9]:  # Enter, Space, Tab
