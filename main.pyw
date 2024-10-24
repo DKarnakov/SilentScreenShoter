@@ -1279,10 +1279,12 @@ class Notepad(tk.Tk):
     def _layout():
         u = ctypes.windll.LoadLibrary('user32.dll')
         pf = getattr(u, 'GetKeyboardLayout')
-        if hex(pf(0)) == '0x4190419':
-            return 'ru'
-        if hex(pf(0)) == '0x4090409':
-            return 'en'
+        layouts = {'0x4190419': 'ru',
+                   '0x4090409': 'en'}
+        try:
+            return layouts[hex(pf(0))]
+        except KeyError:
+            return None
 
     def _key_handler(self, event):
         position = self.text.index('insert')
