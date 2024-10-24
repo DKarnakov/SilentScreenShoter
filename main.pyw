@@ -1123,11 +1123,11 @@ class Application(tk.Tk):
                 x2 = x1 + qr_code.rect.width
                 y2 = y1 + qr_code.rect.height
                 draw.rectangle((x1, y1, x2, y2), fill='black', outline='black', width=5)
-                data.append({'type': qr_code.type, 'data': codecs.decode(qr_code.data)})
+                data.append({'tab': qr_code.type, 'data': codecs.decode(qr_code.data)})
 
         txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6').strip()
         if txt != '' or data == []:
-            data.insert(0, {'type': 'Текст', 'data': txt})
+            data.insert(0, {'tab': 'Текст', 'data': txt})
 
         bbox = self.canvas.bbox(self.viewport)
         self.panel_hint.hide()
@@ -1164,8 +1164,12 @@ class Notepad(tk.Tk):
         def __init__(self, widget, x, y):
             position = f'@{x},{y}'
             index = widget.index(position)
-            self.range = widget.tag_prevrange('link', index)
-            self.url = widget.get(*self.range)
+            try:
+                self.range = widget.tag_prevrange('link', index)
+                self.url = widget.get(*self.range)
+            except TypeError:
+                self.range = (position, position)
+                self.url = ''
 
     def __init__(self, data, bbox):
         tk.Tk.__init__(self)
@@ -1178,7 +1182,7 @@ class Notepad(tk.Tk):
         if len(self.data) > 1:
             self.tabs = ttk.Notebook()
             for record in self.data:
-                self.tabs.add(tk.Frame(self.tabs), text=record['type'])
+                self.tabs.add(tk.Frame(self.tabs), text=record['tab'])
                 self.tabs.pack(fill='x', side='top')
             self.tabs.bind('<<NotebookTabChanged>>', lambda e: self._tab_change())
 
@@ -1289,17 +1293,18 @@ class Notepad(tk.Tk):
         try:
             sel_start, sel_end = self.text.tag_ranges('sel')
             selected_text = self.text.get(sel_start, sel_end)
-            if event.char == '"' and self._layout() == 'en':
-                replace_text = f'"{selected_text}"'
-            elif event.char == '"' and self._layout() == 'ru':
-                replace_text = f'«{selected_text}»'
+            if event.char == '"':
+                if self._layout() == 'ru':
+                    replace_text = f'«{selected_text}»'
+                else:
+                    replace_text = f'"{selected_text}"'
             elif event.char == "'":
                 replace_text = f"'{selected_text}'"
-            elif event.char == '{':
+            elif event.char in ['{', '}']:
                 replace_text = f'{{{selected_text}}}'
-            elif event.char == '[':
+            elif event.char in ['[', ']']:
                 replace_text = f'[{selected_text}]'
-            elif event.char == '(':
+            elif event.char in ['(', ')']:
                 replace_text = f'({selected_text})'
             else:
                 return
@@ -1320,7 +1325,8 @@ class Notepad(tk.Tk):
 
     def _recognize_links(self):
         self.text.tag_remove('link', '1.0', 'end')
-        regex = r'(http|ftp|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])'
+        regex = (r'(\b(http|ftp|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])\b)|'
+                 r'(\b\w+@(?=.*?\.)[\w.]+\b)')
         for match in re.finditer(regex, self.text.get('1.0', 'end')):
             start = self.text.index(f'1.0 + {match.start()} chars')
             end = self.text.index(f'{start} + {len(match.group(0))} chars')
@@ -1340,6 +1346,8 @@ class Notepad(tk.Tk):
 
     def _open_link(self, event):
         link = self.Link(self.text, event.x, event.y)
+        if '@' in link.url:
+            link.url = 'mailto:' + link.url
         webbrowser.open(link.url)
 
     def _tab_change(self):
