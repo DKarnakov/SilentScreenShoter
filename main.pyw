@@ -1215,6 +1215,10 @@ class Notepad(tk.Tk):
         self.find_window.bind('<Control-KeyPress>', lambda e: self._close_find() if e.keycode == 70 else None)
 
         self.text.tag_config('link', foreground='black', underline=True)
+        self.text.tag_bind('link', '<Button-1>', lambda e: self._open_link(e))
+        self.text.tag_bind('link', '<Enter>', lambda e: self._on_enter_link(e))
+        self.text.tag_bind('link', '<Leave>', lambda e: self._on_leave_link())
+
         self.text.tag_config('hover', foreground='blue', underline=True)
         self.text.tag_config('highlight', background='yellow')
 
@@ -1328,9 +1332,6 @@ class Notepad(tk.Tk):
             start = self.text.index(f'1.0 + {match.start()} chars')
             end = self.text.index(f'{start} + {len(match.group(0))} chars')
             self.text.tag_add('link', start, end)
-            self.text.tag_bind('link', '<Button-1>', lambda e: self._open_link(e))
-            self.text.tag_bind('link', '<Enter>', lambda e: self._on_enter_link(e))
-            self.text.tag_bind('link', '<Leave>', lambda e: self._on_leave_link())
 
     def _on_enter_link(self, event):
         self.text['cursor'] = 'hand2'
