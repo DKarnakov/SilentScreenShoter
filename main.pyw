@@ -1275,9 +1275,12 @@ class Notepad(tk.Tk):
             else:
                 break
 
-        self.results['text'] = f'Найдено {get_plural(result, ['совпадение', 'совпадения', 'совпадений'])}'
-        self.results['text'] = '' if result == 0 else self.results['text']
-        self.find_window['foreground'] = 'black' if result != 0 else 'red'
+        if result != 0:
+            self.results['text'] = f'Найдено {get_plural(result, ['совпадение', 'совпадения', 'совпадений'])}'
+            self.find_window['foreground'] = 'black'
+        else:
+            self.results['text'] = ''
+            self.find_window['foreground'] = 'red'
 
     @staticmethod
     def _layout():
