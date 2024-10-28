@@ -171,7 +171,7 @@ class Application(tk.Tk):
 
     def _control(self, event):
         # undo
-        if event.state == 12 and event.keycode == 90:  # Ctrl-z
+        if event.state == 12 and event.keycode == 90:  # Ctrl+Z
             last_item = self.canvas.find_withtag('editor')[-1]
             if last_item != self.viewport:
                 for tag in self.canvas.gettags(last_item):
@@ -179,9 +179,9 @@ class Application(tk.Tk):
                         last_item = tag
                 self.canvas.delete(last_item)
         # save
-        elif event.state in [12, 13] and event.keycode == 67:  # Ctrl-c || Ctrl-Shift-c
+        elif event.state in [12, 13] and event.keycode == 67:  # Ctrl+C || Ctrl+Shift+C
             self._done()
-        elif event.state == 12 and event.keycode == 83:  # Ctrl-s
+        elif event.state == 12 and event.keycode == 83:  # Ctrl+S
             self.canvas.delete('service')
             self.canvas.update()
             image = ImageGrab.grab(bbox=self.canvas.bbox(self.viewport))
@@ -194,7 +194,7 @@ class Application(tk.Tk):
                                                     initialfile=file_name):
                 image.save(file)
         # save color
-        elif event.state == 131084 and event.keycode == 67:  # Ctrl-Alt-c
+        elif event.state == 131084 and event.keycode == 67:  # Ctrl+Alt+C
             hex_color = self.canvas.itemcget('z_33', 'fill')
             red = int(hex_color[1:3], base=16)
             green = int(hex_color[3:5], base=16)
@@ -209,7 +209,7 @@ class Application(tk.Tk):
             self.clipboard_append(color_txt)
             self.update()
         # recognize
-        elif event.state == 12 and event.keycode == 82:  # Ctrl-r
+        elif event.state == 12 and event.keycode == 82:  # Ctrl+R
             self._recognize()
 
     def _create_editor(self, event):
@@ -1227,7 +1227,7 @@ class Notepad(tk.Tk):
     def _control_handler(self, event):
         if event.keycode == 70:  # Ctrl+F
             self._find_text()
-        elif event.keycode == 74: # Ctrl+J
+        elif event.keycode == 74:  # Ctrl+J
             self._remove_line_breaks()
 
     def _remove_line_breaks(self):
@@ -1333,13 +1333,13 @@ class Notepad(tk.Tk):
             return 'break'
         except ValueError:
             if event.char == '"' and self._layout() in ['ru',]:
-                char_before = ord(self.text.get(f'{position}-1c'))
-                char_after = ord(self.text.get(f'{position}'))
-                if char_before in [10, 32, 9]:  # Enter, Space, Tab
-                    self.text.insert(position, chr(171))
+                char_left = ord(self.text.get(f'{position}-1c'))
+                char_right = ord(self.text.get(f'{position}'))
+                if char_left in [10, 32, 9]:  # Enter, Space, Tab
+                    self.text.insert(position, chr(171))  # «
                     return 'break'
-                elif char_after in [10, 32, 9]:  # Enter, Space, Tab
-                    self.text.insert(position, chr(187))
+                elif char_right in [10, 32, 9]:  # Enter, Space, Tab
+                    self.text.insert(position, chr(187))  # »
                     return 'break'
 
     def _recognize_links(self):
