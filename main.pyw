@@ -1199,7 +1199,7 @@ class Notepad(tk.Tk):
 
         self.text.bind('<Button-3>', self._context_menu)
         self.text.bind('<Shift-F3>', lambda e: self._change_case())
-        self.text.bind('<Control-KeyPress>', lambda e: self._find_text() if e.keycode == 70 else None)
+        self.text.bind('<Control-KeyPress>', lambda e: self._control_handler(e))
         self.text.bind('<Escape>', lambda e: self._on_destroy())
         self.text.bind('<KeyPress>', lambda e: self._key_handler(e))
         self.text.bind('<KeyRelease>', lambda e: self._recognize_links())
@@ -1223,6 +1223,21 @@ class Notepad(tk.Tk):
         self.text.tag_config('highlight', background='yellow')
 
         self.update()
+
+    def _control_handler(self, event):
+        if event.keycode == 70:  # Ctrl+F
+            self._find_text()
+        elif event.keycode == 74: # Ctrl+J
+            self._remove_line_breaks()
+
+    def _remove_line_breaks(self):
+        try:
+            sel_start, sel_end = self.text.tag_ranges('sel')
+            selected_text = self.text.get(sel_start, sel_end)
+            replace_text = selected_text.replace('\n', ' ')
+            self.text.replace(sel_start, sel_end, replace_text)
+        except ValueError:
+            pass
 
     def _find_text(self):
         self.find_window.pack(side='right', padx=5, pady=5)
