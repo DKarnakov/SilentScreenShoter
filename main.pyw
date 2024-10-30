@@ -1191,6 +1191,8 @@ class Notepad(tk.Tk):
         self.context_menu.add_command(label='Вырезать', accelerator='Ctrl+X')
         self.context_menu.add_command(label='Копировать', accelerator='Ctrl+C')
         self.context_menu.add_command(label='Вставить', accelerator='Ctrl+V')
+        self.context_menu.add_separator()
+        self.context_menu.add_command(label='Поиск в Яндекс')
 
         self.context_menu.entryconfigure('Выбрать всё', command=lambda: self.text.event_generate('<<SelectAll>>'))
         self.context_menu.entryconfigure('Вырезать', command=lambda: self.text.event_generate('<<Cut>>'))
@@ -1391,20 +1393,12 @@ class Notepad(tk.Tk):
         self.context_menu.entryconfigure('Копировать', state=selection_state)
         self.context_menu.entryconfigure('Вставить', state=clipboard_state)
 
+        url = 'https://yandex.ru/search/?text='
         if 'sel' in self.text.tag_names(index):
-            url = 'https://yandex.ru/search/?text=' + self.text.selection_get()
-            try:
-                self.context_menu.index('Поиск в Яндекс')
-            except tk.TclError:
-                self.context_menu.add_separator()
-                self.context_menu.add_command(label='Поиск в Яндекс')
-            self.context_menu.entryconfigure('Поиск в Яндекс', command=lambda: webbrowser.open(url))
+            url += self.text.selection_get()
         else:
-            try:
-                menu_idx = self.context_menu.index('Поиск в Яндекс')
-                self.context_menu.delete(menu_idx - 1, menu_idx)
-            except tk.TclError:
-                pass
+            url += self.text.get(f'{index} wordstart', f'{index} wordend')
+        self.context_menu.entryconfigure('Поиск в Яндекс', command=lambda: webbrowser.open(url))
 
         if 'link' in self.text.tag_names(index):
             try:
