@@ -22,7 +22,6 @@ from shapely.geometry import Polygon
 
 
 class Application(tk.Tk):
-
     class Hint:
         def __init__(self, widget, hint):
             self.widget = widget
@@ -1161,7 +1160,6 @@ class Application(tk.Tk):
 
 
 class Notepad(tk.Tk):
-
     class Link:
         def __init__(self, widget, x, y):
             position = f'@{x},{y}'
