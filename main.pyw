@@ -22,6 +22,7 @@ from shapely.geometry import Polygon
 
 
 class Application(tk.Tk):
+
     class Hint:
         def __init__(self, widget, hint):
             self.widget = widget
@@ -499,7 +500,8 @@ class Application(tk.Tk):
             if corners == 3:  # triangle
                 shape[-1] = shape[0]
             elif corners in [4, 5]:  # rectangle (incl. mistake)
-                coords = LineString(points).oriented_envelope.exterior.coords
+                line_string = LineString(points)
+                coords = line_string.oriented_envelope.exterior.coords
                 shape = [(x, y) for x, y in coords]
             else:  # ellipse
                 x1 = min([point[0] for point in points])
