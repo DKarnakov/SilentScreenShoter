@@ -849,7 +849,7 @@ class Application(tk.Tk):
                                             tags=['editor', f'txt{self.txt_tag}', 'item'])
         self.text_cursor = self.canvas.create_text(x, y, anchor='nw',
                                                    text='|', font=f'Helvetica {self.font_size} bold',
-                                                   fill='grey50', tags=f'txt{self.txt_tag}')
+                                                   fill='grey50', tags=[f'txt{self.txt_tag}', 'service'])
         self.coords = [x, y, max(self.coords[0], self.coords[2]), max(self.coords[1], self.coords[3])]
         self.canvas.tag_bind(f'txt{self.txt_tag}', '<ButtonPress-3>',
                              partial(self.canvas.delete, f'txt{self.txt_tag}'))
@@ -933,6 +933,7 @@ class Application(tk.Tk):
             self.is_blinking = self.after(500, self._blink_cursor)
         else:
             self.after_cancel(self.is_blinking)
+            self.is_blinking = None
 
     def _redraw_text(self):
         bounds = self.canvas.bbox(self.text)
