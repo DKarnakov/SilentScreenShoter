@@ -1464,9 +1464,12 @@ def launcher(_, __, button, pressed):
     if button == mouse.Button.right:
         RM_BUTTON = pressed
 
-    if all([LM_BUTTON, MM_BUTTON, RM_BUTTON]) or all([button == mouse.Button.x1, pressed]):
+    forward_button = button == mouse.Button.x1 and pressed
+    back_button = button == mouse.Button.x2 and pressed
+
+    if all([LM_BUTTON, MM_BUTTON, RM_BUTTON]) or forward_button:
         STATUS = ask_user_about(STATUS)
-    elif all([STATUS, LM_BUTTON, RM_BUTTON]) or all([STATUS, button == mouse.Button.x2, pressed]):
+    elif all([STATUS, LM_BUTTON, RM_BUTTON]) or all([STATUS, back_button]):
         APPLICATION_IS_RUNNING = True
         app = Application()
         app.mainloop()
