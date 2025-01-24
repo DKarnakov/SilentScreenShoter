@@ -755,25 +755,13 @@ class Application(tk.Tk):
         radius = min((x2 - x1) // 2, (y2 - y1) // 2, radius)
 
         return [x1, y1,
-                x1 + radius, y1,
-                x1 + radius, y1,
-                x2 - radius, y1,
-                x2 - radius, y1,
+                x1 + radius, y1, x1 + radius, y1, x2 - radius, y1, x2 - radius, y1,
                 x2, y1,
-                x2, y1 + radius,
-                x2, y1 + radius,
-                x2, y2 - radius,
-                x2, y2 - radius,
+                x2, y1 + radius, x2, y1 + radius, x2, y2 - radius, x2, y2 - radius,
                 x2, y2,
-                x2 - radius, y2,
-                x2 - radius, y2,
-                x1 + radius, y2,
-                x1 + radius, y2,
+                x2 - radius, y2, x2 - radius, y2, x1 + radius, y2, x1 + radius, y2,
                 x1, y2,
-                x1, y2 - radius,
-                x1, y2 - radius,
-                x1, y1 + radius,
-                x1, y1 + radius,
+                x1, y2 - radius, x1, y2 - radius, x1, y1 + radius, x1, y1 + radius,
                 x1, y1]
 
     def _set_rect(self):
@@ -1464,12 +1452,12 @@ def launcher(_, __, button, pressed):
     if button == mouse.Button.right:
         RM_BUTTON = pressed
 
-    forward_button = button == mouse.Button.x1 and pressed
-    back_button = button == mouse.Button.x2 and pressed
+    # forward_button = button == mouse.Button.x1 and pressed
+    # back_button = button == mouse.Button.x2 and pressed
 
-    if all([LM_BUTTON, MM_BUTTON, RM_BUTTON]) or forward_button:
+    if all([LM_BUTTON, MM_BUTTON, RM_BUTTON]):
         STATUS = ask_user_about(STATUS)
-    elif all([STATUS, LM_BUTTON, RM_BUTTON]) or all([STATUS, back_button]):
+    elif all([STATUS, LM_BUTTON, RM_BUTTON]):
         APPLICATION_IS_RUNNING = True
         app = Application()
         app.mainloop()
