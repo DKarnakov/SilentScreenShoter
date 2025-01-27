@@ -1,0 +1,6 @@
+Pillow==11.1.0
+pynput==1.7.6
+pytesseract==0.3.10
+pywin32==306
+pyzbar==0.1.9
+Shapely==2.0.6
