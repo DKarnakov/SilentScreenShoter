@@ -1159,7 +1159,6 @@ class Notepad(tk.Tk):
     def __init__(self, data, bbox):
         tk.Tk.__init__(self)
         self.title('SilentScreenShoter — Буфер обмена')
-        self.after(1, lambda: self.text.focus_force())
         self.geometry(f'{bbox[2] - bbox[0]}x{bbox[3] - bbox[1]}+{bbox[0]}+{bbox[1] - 22}')
         self.protocol('WM_DELETE_WINDOW', self._on_destroy)
         self.data = data
@@ -1213,6 +1212,7 @@ class Notepad(tk.Tk):
         self.text.tag_config('hover', foreground='blue', underline=True)
         self.text.tag_config('highlight', background='yellow')
 
+        self.text.focus_force()
         self.update()
 
     def _control_handler(self, event):
@@ -1451,9 +1451,6 @@ def launcher(_, __, button, pressed):
         MM_BUTTON = pressed
     if button == mouse.Button.right:
         RM_BUTTON = pressed
-
-    # forward_button = button == mouse.Button.x1 and pressed
-    # back_button = button == mouse.Button.x2 and pressed
 
     if all([LM_BUTTON, MM_BUTTON, RM_BUTTON]):
         STATUS = ask_user_about(STATUS)
