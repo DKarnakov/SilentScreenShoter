@@ -120,6 +120,8 @@ class Application(tk.Tk):
         done_txt = tk.StringVar(value='Ok')
         self.done_button = ttk.Button(self.panel, textvariable=done_txt, command=lambda: self._done())
 
+        self.done_button.bind('<Button-3>', lambda e: self.destroy())
+
         self.bind('<F1>', lambda e: self._set_arrow())
         self.bind('<F2>', lambda e: self._set_pen())
         self.bind('<F3>', lambda e: self._set_line())
