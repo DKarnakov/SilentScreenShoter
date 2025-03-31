@@ -22,7 +22,21 @@ from shapely.geometry import Polygon
 
 
 class Application(tk.Tk):
+    """Основной класс приложения для создания и редактирования скриншотов.
+
+    Attributes:
+        canvas (tk.Canvas): Холст для отображения элементов интерфейса и изображений
+        panel (ttk.Frame): Панель инструментов редактирования
+        palette (list): Цветовая палитра для рисования
+        image (PIL.Image): Текущий снимок экрана
+    """
     class Hint:
+        """Вспомогательный класс для отображения подсказок при наведении на элементы интерфейса.
+
+        Args:
+            widget (ttk.Widget): Виджет, для которого создается подсказка
+            hint (list): Список текстовых подсказок для элементов виджета
+        """
         def __init__(self, widget, hint):
             self.widget = widget
             self.hint = hint
@@ -54,6 +68,12 @@ class Application(tk.Tk):
                     w.destroy()
 
     class MakeDraggable:
+        """Класс для реализации перетаскивания элементов интерфейса.
+
+        Args:
+            widget (ttk.Widget): Перетаскиваемый виджет
+            on_start (function): Коллбэк при начале перетаскивания
+        """
         def __init__(self, widget, on_start=None):
             self.widget = widget
             self.function_on_start = on_start
@@ -72,6 +92,7 @@ class Application(tk.Tk):
             self.widget.place(x=x, y=y)
 
     def __init__(self):
+        """Инициализирует полноэкранное окно, захватывает снимок экрана и настраивает обработчики событий."""
         tk.Tk.__init__(self)
 
         self.false_start = None
@@ -148,6 +169,14 @@ class Application(tk.Tk):
         self.focus_set()
 
     def _create_corner(self, position, x, y, cursor):
+        """Создает маркер для изменения размера области редактирования.
+
+        Args:
+            position (str): Позиция маркера ('nw', 'n', 'ne' и т.д.)
+            x (int): Координата X маркера
+            y (int): Координата Y маркера
+            cursor (str): Вид курсора при наведении
+        """
         self.corner[position] = self.canvas.create_rectangle(x - 4, y - 4, x + 4, y + 4, width=2,
                                                              outline='lightgrey', fill='black', tags='service')
         self.canvas.tag_bind(self.corner[position], '<Enter>', lambda e: self.canvas.config(cursor=cursor))
@@ -156,9 +185,22 @@ class Application(tk.Tk):
         self.canvas.tag_bind(self.corner[position], '<ButtonRelease-1>', lambda e: self._fix_viewport())
 
     def _move_corner(self, position, x, y):
+        """Перемещает маркер изменения размера.
+
+        Args:
+            position (str): Позиция маркера
+            x (int): Новая координата X
+            y (int): Новая координата Y
+        """
         self.canvas.moveto(self.corner[position], x - 5, y - 5)
 
     def _draw_borders(self, x1, y1, x2, y2):
+        """Обновляет границы выделенной области и позиции маркеров.
+
+        Args:
+            x1, y1 (int): Координаты левого верхнего угла
+            x2, y2 (int): Координаты правого нижнего угла
+        """
         self.canvas.coords(self.border, (x1, y1, x2, y2))
 
         self._move_corner('nw', x1, y1)
@@ -171,6 +213,11 @@ class Application(tk.Tk):
         self._move_corner('w', x1, (y2 + y1) // 2)
 
     def _control(self, event):
+        """Обрабатывает комбинации клавиш для управления приложением.
+
+        Args:
+            event (tk.Event): Событие клавиатуры
+        """
         # undo
         if event.state == 12 and event.keycode == 90:  # Ctrl+Z
             last_item = self.canvas.find_withtag('editor')[-1]
@@ -214,6 +261,11 @@ class Application(tk.Tk):
             self._recognize()
 
     def _create_editor(self, event):
+        """Создает область редактирования на холсте.
+
+            Args:
+                event (tk.Event): Событие мыши с координатами начала выделения
+        """
         x1, y1, x2, y2 = event.x, event.y, event.x + 2, event.y + 2
 
         screenshot_area = self.image.crop((x1, y1, x2, y2))
@@ -273,6 +325,7 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<ButtonRelease-2>', lambda e: self._ruler_stop())
 
     def _precision(self):
+        """Активирует режим прецизионных измерений (Alt). Показывает размеры области и цвет пикселя."""
         x1, y1, x2, y2 = self.canvas.bbox(self.viewport)
         self.canvas.itemconfig('precision', state='normal')
         self.canvas.itemconfig(self.viewport_size, text=f'{x2 - x1}×{y2 - y1}')
@@ -310,6 +363,11 @@ class Application(tk.Tk):
         self.canvas.tag_raise('z_33')
 
     def _set_color(self, color):
+        """Устанавливает активный цвет для инструментов рисования.
+
+        Args:
+            color (str): Код цвета (1-9) или '0' для пипетки
+        """
         if color == '':
             return
         elif color in '123456789':
@@ -322,6 +380,11 @@ class Application(tk.Tk):
             self.color_panel['background'] = f'#{r:02x}{g:02x}{b:02x}'
 
     def _set_viewport(self, event):
+        """Обновляет границы выделенной области при перемещении мыши.
+
+        Args:
+            event (tk.Event): Событие перемещения мыши с текущими координатами
+        """
         x1, x2, y1, y2 = self.x1, event.x, self.y1, event.y
 
         anchor = 's' if y2 < y1 else 'n'
@@ -338,6 +401,12 @@ class Application(tk.Tk):
         self.x2, self.y2 = x2, y2
 
     def _change_viewport(self, corner, event):
+        """Изменяет размер области редактирования через маркеры.
+
+        Args:
+            corner (str): Позиция изменяемого угла
+            event (tk.Event): Событие перемещения мыши
+        """
         x1 = event.x if 'w' in corner else self.x1
         y1 = event.y if 'n' in corner else self.y1
         x2 = event.x if 'e' in corner else self.x2
@@ -363,9 +432,15 @@ class Application(tk.Tk):
         self._draw_borders(x1, y1, x2, y2)
 
     def _fix_viewport(self):
+        """Фиксирует новые границы области редактирования после изменения."""
         self.x1, self.y1, self.x2, self.y2 = self.canvas.coords(self.border)
 
     def _check_viewport_borders(self, x, y):
+        """Расширяет область редактирования при выходе за границы.
+
+        Args:
+            x, y (int): Координаты проверяемой точки
+        """
         x1 = x if x < self.canvas.bbox(self.viewport)[0] else self.canvas.bbox(self.viewport)[0]
         x2 = x if x > self.canvas.bbox(self.viewport)[2] else self.canvas.bbox(self.viewport)[2]
         y1 = y if y < self.canvas.bbox(self.viewport)[1] else self.canvas.bbox(self.viewport)[1]
@@ -380,6 +455,7 @@ class Application(tk.Tk):
             self.x1, self.y1, self.x2, self.y2 = [x1, y1, x2, y2]
 
     def _start_editing(self):
+        """Активирует панель инструментов после завершения выделения области."""
         if [self.x1, self.x2, self.y1, self.y2] == [None, None, None, None]:
             return
         self.x1, self.y1, self.x2, self.y2 = self.canvas.coords(self.border)
@@ -407,6 +483,11 @@ class Application(tk.Tk):
         self._set_arrow()
 
     def _set_selection(self, button):
+        """Активирует состояние выбранной кнопки на панели инструментов.
+
+        Args:
+            button (ttk.Button): Нажатая кнопка инструмента
+        """
         for w in button.master.winfo_children():
             ttk.Button.state(w, ['!pressed'])
         ttk.Button.state(button, ['pressed'])
@@ -415,9 +496,15 @@ class Application(tk.Tk):
             self._text_stop()
 
     def _new_item(self, event):
+        """Инициализирует создание нового графического элемента.
+
+        Args:
+            event (tk.Event): Событие нажатия мыши
+        """
         self.coords = [event.x, event.y]
 
     def _set_arrow(self):
+        """Активирует инструмент 'Стрелка' для создания указателей."""
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._new_item(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._arrow_move(e))
         self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self.canvas.unbind('<MouseWheel>'))
@@ -425,6 +512,11 @@ class Application(tk.Tk):
         self._set_selection(self.arrow_button)
 
     def _arrow_move(self, event):
+        """Обрабатывает создание и перемещение стрелки.
+
+        Args:
+            event (tk.Event): Событие перемещения мыши
+        """
         if len(self.coords) == 2:
             self.coords += [event.x, event.y]
             self.arrow = self.canvas.create_line(self.coords,
@@ -440,12 +532,18 @@ class Application(tk.Tk):
             self.canvas.coords(self.arrow, self.coords)
 
     def _arrow_change(self, event):
+        """Изменяет направление стрелки колесом мыши.
+
+        Args:
+            event (tk.Event): Событие колеса мыши
+        """
         arrows = [tk.FIRST, tk.LAST, tk.BOTH]
         arrow = arrows.index(self.canvas.itemcget(self.arrow, 'arrow'))
         arrow += 1 if event.delta > 0 else -1
         self.canvas.itemconfigure(self.arrow, arrow=arrows[arrow % 3])
 
     def _set_pen(self):
+        """Активирует инструмент 'Карандаш' для свободного рисования."""
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._new_item(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._pen_draw(e))
         self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self._pen_control_stop())
@@ -453,6 +551,7 @@ class Application(tk.Tk):
         self._set_selection(self.pen_button)
 
     def _pen_control_stop(self):
+        """Останавливает обработку специальных режимов для инструмента 'Карандаш'."""
         self.unbind('<KeyPress-Control_L>')
         self.unbind('<KeyRelease-Control_L>')
         self.unbind('<KeyPress-Control_R>')
@@ -460,6 +559,11 @@ class Application(tk.Tk):
         self.canvas.unbind('<MouseWheel>')
 
     def _pen_draw(self, event):
+        """Обрабатывает рисование карандашом.
+
+        Args:
+            event (tk.Event): Событие перемещения мыши
+        """
         if len(self.coords) == 2:
             self.coords += [event.x, event.y]
             self.pen = self.canvas.create_line(self.coords, width=5, capstyle='round',
@@ -480,11 +584,17 @@ class Application(tk.Tk):
             self._check_viewport_borders(x2, y2)
 
     def _pen_width_change(self, event):
+        """Изменяет толщину карандаша колесом мыши.
+
+        Args:
+            event (tk.Event): Событие колеса мыши
+        """
         pen_width = float(self.canvas.itemcget(self.pen, 'width'))
         pen_width = max(pen_width - 1, 0) if event.delta < 0 else pen_width + 1
         self.canvas.itemconfigure(self.pen, width=pen_width)
 
     def _pen_recognise(self):
+        """Автоматически преобразует нарисованные линии в геометрические фигуры."""
         points = []
         for point in range(0, len(self.coords), 2):
             points.append((float(self.coords[point]), float(self.coords[point + 1])))
@@ -524,6 +634,15 @@ class Application(tk.Tk):
 
     @staticmethod
     def _simplify_points(pts, tolerance):
+        """Упрощает набор точек с заданной точностью.
+
+        Args:
+            pts (list): Список точек (x,y)
+            tolerance (float): Допустимая погрешность
+
+        Returns:
+            list: Упрощенный список точек
+        """
         anchor = 0
         floater = len(pts) - 1
         stack = []
@@ -573,6 +692,11 @@ class Application(tk.Tk):
         return [pts[i] for i in keep]
 
     def _ruler_move(self, event):
+        """Обрабатывает создание и перемещение линейки.
+
+        Args:
+            event (tk.Event): Событие перемещения мыши
+        """
         if len(self.coords) == 2:
             self.coords += [event.x, event.y]
             self.ruler = self.canvas.create_line(self.coords, tags='ruler', dash=(10, 5),
@@ -622,6 +746,11 @@ class Application(tk.Tk):
             self._draw_ruler_area()
 
     def _ruler_add_point(self, event):
+        """Добавляет точку для измерения площади.
+
+        Args:
+            event (tk.Event): Событие нажатия мыши
+        """
         self.coords += [event.x, event.y]
         if len(self.coords) == 6:
             self.canvas.itemconfigure(self.ruler_area, state='normal')
@@ -632,6 +761,11 @@ class Application(tk.Tk):
         self._draw_ruler_area()
 
     def _ruler_delete_point(self, event):
+        """Удаляет последнюю точку измерения площади.
+
+        Args:
+            event (tk.Event): Событие нажатия правой кнопки мыши
+        """
         self.coords = self.coords[:-4] + [event.x, event.y]
         if len(self.coords) == 4:
             self.canvas.itemconfigure(self.ruler, state='normal')
@@ -646,6 +780,7 @@ class Application(tk.Tk):
             self._draw_ruler_area()
 
     def _draw_ruler_area(self):
+        """Рассчитывает и отображает площадь измеряемой области."""
         vertices = [(self.coords[i], self.coords[i + 1]) for i in range(0, len(self.coords), 2)]
         polygon = Polygon(vertices)
         if polygon.is_simple:
@@ -660,6 +795,13 @@ class Application(tk.Tk):
             self.canvas.itemconfigure(self.ruler_area, fill='')
 
     def _draw_ruler_size(self, text, text_color, bg_color):
+        """Обновляет отображение размеров линейки.
+
+        Args:
+            text (int|str): Значение для отображения
+            text_color (str): Цвет текста
+            bg_color (str): Цвет фона
+        """
         self.canvas.itemconfigure(self.ruler_size, text=text, fill=text_color)
         self.canvas.itemconfigure(self.ruler_size_bg, fill=bg_color)
         x = sum(self.coords[::2]) / (len(self.coords) // 2)
@@ -668,6 +810,11 @@ class Application(tk.Tk):
         self.canvas.coords(self.ruler_size_bg, self._offset_bbox(self.canvas.bbox(self.ruler_size), 3))
 
     def _ruler_scale(self, event):
+        """Изменяет масштаб линейки вводом значений с клавиатуры.
+
+        Args:
+            event (tk.Event): Событие клавиатуры
+        """
         if event.char in '0123456789':
             self.ruler_txt += event.char
         elif event.keysym == 'BackSpace':
@@ -687,6 +834,7 @@ class Application(tk.Tk):
         self._draw_ruler_size(self.ruler_txt, 'white', 'blue')
 
     def _ruler_stop(self):
+        """Завершает работу с инструментом 'Линейка'."""
         self.canvas.delete('ruler')
         self.bind('<Key>', lambda e: self._set_color(e.char) if e.char in '1234567890' else None)
         self.canvas.tag_unbind('editor', '<ButtonPress-3>')
@@ -696,13 +844,23 @@ class Application(tk.Tk):
 
     @staticmethod
     def _offset_bbox(bbox, offset):
+        """Расширяет bounding box на заданное расстояние.
+
+        Args:
+            bbox (tuple): Координаты (x1,y1,x2,y2)
+            offset (int): Величина расширения
+
+        Returns:
+            tuple: Новые координаты
+        """
         x1, y1, x2, y2 = bbox
-        return [x1 - offset,
+        return (x1 - offset,
                 y1 - offset,
                 x2 + offset,
-                y2 + offset]
+                y2 + offset)
 
     def _set_line(self):
+        """Активирует инструмент 'Линия' для рисования прямых с настраиваемым стилем."""
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._new_item(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._line_move(e))
         self.canvas.tag_bind('editor', '<Shift-B1-Motion>', lambda e: self._line_angle_move(pi / 8, e))
@@ -711,12 +869,22 @@ class Application(tk.Tk):
         self._set_selection(self.line_button)
 
     def _line_change(self, event):
+        """Изменяет стиль линии колесом мыши.
+
+        Args:
+            event (tk.Event): Событие колеса мыши
+        """
         dashes = ['', '255', '1', '1 1 1 1', '1 1 1']
         dash = dashes.index(self.canvas.itemcget(self.line, 'dash'))
         dash += 1 if event.delta > 0 else -1
         self.canvas.itemconfigure(self.line, dash=dashes[dash % len(dashes)])
 
     def _line_move(self, event):
+        """Обрабатывает создание и перемещение линии.
+
+        Args:
+            event (tk.Event): Событие перемещения мыши
+        """
         if len(self.coords) == 2:
             self.coords += [event.x, event.y]
             self.line = self.canvas.create_line(self.coords, tags=['editor', 'item'],
@@ -730,6 +898,12 @@ class Application(tk.Tk):
             self.canvas.coords(self.line, self.coords)
 
     def _line_angle_move(self, angle, event):
+        """Рисует линию под фиксированными углами (с зажатым Shift).
+
+        Args:
+            angle (float): Шаг угла в радианах
+            event (tk.Event): Событие перемещения мыши
+        """
         if len(self.coords) == 2:
             self.coords += [event.x, event.y]
             self.line = self.canvas.create_line(self.coords, tags=['editor', 'item'],
@@ -749,6 +923,15 @@ class Application(tk.Tk):
 
     @staticmethod
     def _round_rectangle(coords, radius=13):
+        """Генерирует координаты для прямоугольника со скругленными углами.
+
+        Args:
+            coords (list): Координаты (x1,y1,x2,y2)
+            radius (int): Радиус скругления
+
+        Returns:
+            list: Координаты для создания фигуры
+        """
         x1, y1, x2, y2 = coords
 
         x1, x2 = (x2, x1) if x2 < x1 else (x1, x2)
@@ -766,6 +949,7 @@ class Application(tk.Tk):
                 x1, y1]
 
     def _set_rect(self):
+        """Активирует инструмент 'Рамка' для рисования прямоугольников со скругленными углами."""
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._new_item(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._rect_move(e))
         self.canvas.tag_unbind('editor', '<ButtonRelease-1>')
@@ -774,6 +958,11 @@ class Application(tk.Tk):
         self._set_selection(self.rect_button)
 
     def _rect_move(self, event):
+        """Обрабатывает создание и перемещение прямоугольника.
+
+        Args:
+            event (tk.Event): Событие перемещения мыши
+        """
         if len(self.coords) == 2:
             self.coords += [event.x, event.y]
             self.rect_corner = 13
@@ -787,6 +976,11 @@ class Application(tk.Tk):
             self.canvas.coords(self.rect, self._round_rectangle(self.coords, self.rect_corner))
 
     def _rect_corner_change(self, event):
+        """Изменяет радиус скругления углов колесом мыши.
+
+        Args:
+            event (tk.Event): Событие колеса мыши
+        """
         if event.delta < 0:
             self.rect_corner = max(self.rect_corner - ((self.rect_corner // 10) + 1), 0)
         else:
@@ -796,6 +990,7 @@ class Application(tk.Tk):
         self.canvas.coords(self.rect, self._round_rectangle(self.coords, self.rect_corner))
 
     def _set_text(self):
+        """Активирует инструмент 'Надпись' для добавления текстовых аннотаций."""
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._text_create(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._text_resize_bg(e))
         self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self._text_start(e))
@@ -803,6 +998,11 @@ class Application(tk.Tk):
         self._set_selection(self.text_button)
 
     def _text_create(self, event):
+        """Инициализирует создание текстового блока.
+
+        Args:
+            event (tk.Event): Событие нажатия мыши
+        """
         if self.text_edit:
             self._text_stop()
 
@@ -821,6 +1021,11 @@ class Application(tk.Tk):
         self.unbind('<Escape>')
 
     def _text_start(self, event):
+        """Активирует редактирование текста после создания блока.
+
+        Args:
+            event (tk.Event): Событие отпускания мыши
+        """
         self.bind('<Key>', self._key_handler)
         self.bind('<Control-Key>', self._key_control_handler)
         self.bind('<Control-MouseWheel>', lambda e: self._mouse_control_wheel_handler(e))
@@ -845,6 +1050,11 @@ class Application(tk.Tk):
         self._blink_cursor()
 
     def _text_resize_bg(self, event):
+        """Изменяет размер фона текстового блока.
+
+        Args:
+            event (tk.Event): Событие перемещения мыши
+        """
         x1, y1 = self.coords[:2]
         x2, y2 = event.x, event.y
         self._check_viewport_borders(x2, y2)
@@ -859,6 +1069,11 @@ class Application(tk.Tk):
         self.coords[3] = y2
 
     def _alpha_change(self, event):
+        """Изменяет прозрачность фона текстового блока колесом мыши.
+
+        Args:
+            event (tk.Event): Событие колеса мыши
+        """
         self.alpha = min(self.alpha + 0.1, 1) if event.delta > 0 else max(self.alpha - 0.1, 0)
         x1, y1 = self.coords[:2]
         x2, y2 = event.x, event.y
@@ -868,6 +1083,13 @@ class Application(tk.Tk):
         self._create_txt_bg(self._offset_bbox((x1, y1, x2, y2), 3), 'white', self.alpha)
 
     def _create_txt_bg(self, bbox, color, alpha):
+        """Создает полупрозрачный фон для текстового блока.
+
+        Args:
+            bbox (tuple): Координаты области (x1,y1,x2,y2)
+            color (str): Цвет фона
+            alpha (float): Уровень прозрачности (0-1)
+        """
         x1, y1, x2, y2 = bbox
         alpha = int(alpha * 255)
         fill = self.winfo_rgb(color) + (alpha,)
@@ -880,6 +1102,12 @@ class Application(tk.Tk):
         self.canvas.tag_lower(f'txt{self.txt_tag}_bg', f'txt{self.txt_tag}')
 
     def _move_txt(self, direction, step=1):
+        """Перемещает текстовый блок с заданным шагом.
+
+        Args:
+            direction (str): Направление ('Up','Down','Left','Right')
+            step (int): Величина перемещения
+        """
         bounds = self.canvas.bbox(self.text)
         x1, y1, x2, y2 = (bounds[0], bounds[1], max(self.coords[2], bounds[2]), max(self.coords[3], bounds[3]))
         if direction == 'Up' and y1 - step > 0:
@@ -901,6 +1129,7 @@ class Application(tk.Tk):
         self.coords[1] = y1
 
     def _update_cursor_position(self):
+        """Обновляет позицию текстового курсора согласно текущему тексту."""
         lines = len(self.txt.split('\n')) - 1
         max_width = int(self.canvas.itemcget(self.text, 'width'))
         for line in self.txt.split('\n'):
@@ -915,6 +1144,7 @@ class Application(tk.Tk):
         self.canvas.itemconfig(self.text_cursor, font=f'Helvetica {self.font_size} bold')
 
     def _blink_cursor(self):
+        """Реализует мигание текстового курсора."""
         if self.text_edit:
             self.cursor_visible = not self.cursor_visible
             self.canvas.itemconfigure(self.text_cursor, state='normal' if self.cursor_visible else 'hidden')
@@ -924,6 +1154,7 @@ class Application(tk.Tk):
             self.is_blinking = None
 
     def _redraw_text(self):
+        """Перерисовывает текстовый блок при изменениях."""
         bounds = self.canvas.bbox(self.text)
         bounds = (bounds[0], bounds[1], max(self.coords[2], bounds[2]), max(self.coords[3], bounds[3]))
         self._check_viewport_borders(bounds[0] - 3, bounds[1] - 3)
@@ -933,6 +1164,11 @@ class Application(tk.Tk):
         self._update_cursor_position()
 
     def _key_handler(self, event):
+        """Обрабатывает ввод текста и специальные клавиши.
+
+        Args:
+            event (tk.Event): Событие клавиатуры
+        """
         if event.keysym == 'BackSpace':
             self.txt = self.txt[:-1]
         elif event.keysym == 'Escape':
@@ -951,6 +1187,11 @@ class Application(tk.Tk):
         self._redraw_text()
 
     def _key_control_handler(self, event):
+        """Обрабатывает комбинации клавиш для управления текстом.
+
+        Args:
+            event (tk.Event): Событие клавиатуры
+        """
         if event.keysym == 'Return':
             self._text_stop()
             return
@@ -965,11 +1206,17 @@ class Application(tk.Tk):
         self._redraw_text()
 
     def _mouse_control_wheel_handler(self, event):
+        """Изменяет размер шрифта колесом мыши с зажатым Ctrl.
+
+        Args:
+            event (tk.Event): Событие колеса мыши
+        """
         self.font_size = min(self.font_size + 1, 25) if event.delta > 0 else max(self.font_size - 1, 9)
         self.canvas.itemconfig(self.text, font=f'Helvetica {self.font_size} bold')
         self._redraw_text()
 
     def _text_stop(self):
+        """Завершает редактирование текста."""
         self.bind('<Key>', lambda e: self._set_color(e.char) if e.char in '1234567890' else None)
         self.unbind('<Control-MouseWheel>')
         self.bind('<Control-KeyPress>', lambda e: self._control(e))
@@ -983,6 +1230,7 @@ class Application(tk.Tk):
             pass
 
     def _set_blur(self):
+        """Активирует инструмент 'Размытие' для скрытия конфиденциальных областей."""
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._blur_create(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._blur_move(e))
         self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self.canvas.unbind('<MouseWheel>'))
@@ -990,6 +1238,11 @@ class Application(tk.Tk):
         self._set_selection(self.blur_button)
 
     def _blur_create(self, event):
+        """Инициализирует создание размытой области.
+
+        Args:
+            event (tk.Event): Событие нажатия мыши
+        """
         self.coords = event.x, event.y
         blur_area = self.blur_image.crop(self.coords * 2)
         self.image_stack.append(ImageTk.PhotoImage(blur_area))
@@ -1002,6 +1255,11 @@ class Application(tk.Tk):
         self.blur_image = self.image.filter(ImageFilter.GaussianBlur(self.blur_radius))
 
     def _blur_move(self, event):
+        """Изменяет размер и положение размытой области.
+
+        Args:
+            event (tk.Event): Событие перемещения мыши
+        """
         x1, y1 = self.coords
         x2, y2 = event.x, event.y
         self._check_viewport_borders(x2, y2)
@@ -1017,11 +1275,17 @@ class Application(tk.Tk):
         self.canvas.itemconfig(self.blur, anchor=anchor, image=self.image_stack[-1], tags=['editor', 'item'])
 
     def _blur_change(self, event):
+        """Изменяет интенсивность размытия колесом мыши.
+
+        Args:
+            event (tk.Event): Событие колеса мыши
+        """
         self.blur_radius = min(self.blur_radius + 1, 10) if event.delta > 0 else max(self.blur_radius - 1, 1)
         self.blur_image = self.image.filter(ImageFilter.GaussianBlur(self.blur_radius))
         self._blur_move(event)
 
     def _set_number(self):
+        """Активирует инструмент 'Нумерация' для создания нумерованных меток."""
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._number_create(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._number_move(e))
         self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self._number_set())
@@ -1029,6 +1293,11 @@ class Application(tk.Tk):
         self._set_selection(self.num_button)
 
     def _number_create(self, event):
+        """Создает нумерованную метку в указанной позиции.
+
+        Args:
+            event (tk.Event): Событие нажатия мыши
+        """
         tag = '_' + str(self.num)
         while self.canvas.find_withtag(tag) != ():
             tag = tag + '_' + str(self.num)
@@ -1058,6 +1327,11 @@ class Application(tk.Tk):
         self.canvas.bind('<MouseWheel>', lambda e: self._num_change(e))
 
     def _number_move(self, event):
+        """Изменяет положение указателя нумерованной метки.
+
+        Args:
+            event (tk.Event): Событие перемещения мыши
+        """
         x1, y1, *_ = self.canvas.coords(self.number_arrow)
         x2, y2 = event.x, event.y
         self._check_viewport_borders(x2, y2)
@@ -1069,6 +1343,11 @@ class Application(tk.Tk):
         self.canvas.coords(self.number_arrow, x1, y1, x2, y2)
 
     def _num_change(self, event):
+        """Изменяет номер метки колесом мыши.
+
+        Args:
+            event (tk.Event): Событие колеса мыши
+        """
         self.num = self.num + 1 if event.delta > 0 else max(self.num - 1, 1)
         self.num_button['text'] = self.num
         tag = '_' + str(self.num)
@@ -1080,16 +1359,27 @@ class Application(tk.Tk):
         self.canvas.tag_bind(tag, '<ButtonPress-3>', partial(self._number_delete, tag))
 
     def _number_set(self):
+        """Фиксирует созданную нумерованную метку. Добавляет счетчик на кнопке"""
         self.num += 1
         self.num_button['text'] = self.num
         self.canvas.unbind('<MouseWheel>')
 
     def _number_delete(self, tag, _):
+        """Удаляет нумерованную метку по тегу.
+
+        Args:
+            tag (str): Идентификатор метки
+        """
         self.canvas.delete(tag)
         self.num = int(tag.split('_')[-1])
         self.num_button['text'] = self.num
 
     def _change_number(self, event):
+        """Изменяет текущий номер для инструмента нумерации.
+
+        Args:
+            event (tk.Event): Событие колеса мыши
+        """
         if event.delta > 0:
             self.num += 1
         elif self.num > 1:
@@ -1098,12 +1388,18 @@ class Application(tk.Tk):
         self._set_number()
 
     def _change_color(self, event):
+        """Изменяет активный цвет колесом мыши.
+
+        Args:
+            event (tk.Event): Событие колеса мыши
+        """
         self.color += 1 if event.delta > 0 else -1
         self.color_panel['background'] = self.palette[self.color % 9]
         if self.text_edit:
             self.canvas.itemconfig(self.text, fill=self.palette[self.color % 9])
 
     def _recognize(self):
+        """Распознает текст и QR-коды в выделенной области с помощью Tesseract OCR и pyzbar."""
         data = []
         qr_codes = decode(self.screenshot_area)
         if qr_codes:
@@ -1126,6 +1422,7 @@ class Application(tk.Tk):
         Notepad(data, bbox).mainloop()
 
     def _done(self):
+        """Завершает редактирование: сохраняет в буфер обмена или экспортирует в файл."""
         self.canvas.delete('service')
         self.canvas.update()
         image = ImageGrab.grab(bbox=self.canvas.bbox(self.viewport))
@@ -1150,7 +1447,22 @@ class Application(tk.Tk):
 
 
 class Notepad(tk.Tk):
+    """Окно для работы с распознанным текстом и данными QR-кодов.
+
+    Attributes:
+        tabs (ttk.Notebook): Контейнер вкладок для разных типов данных
+        text (ScrolledText): Основной текстовый редактор
+        data (list): Список распознанных данных (текст + QR-коды)
+        context_menu (tk.Menu): Контекстное меню для текста
+    """
     class Link:
+        """Класс для работы с гиперссылками в тексте.
+
+        Args:
+            widget (tk.Text): Текстовый виджет
+            x (int): Координата X клика
+            y (int): Координата Y клика
+        """
         def __init__(self, widget, x, y):
             position = f'@{x},{y}'
             index = f'{widget.index(position)}+1c'
@@ -1158,6 +1470,7 @@ class Notepad(tk.Tk):
             self.url = widget.get(*self.range)
 
     def __init__(self, data, bbox):
+        """Инициализирует окно редактора с распознанными данными."""
         tk.Tk.__init__(self)
         self.title('SilentScreenShoter — Буфер обмена')
         self.geometry(f'{bbox[2] - bbox[0]}x{bbox[3] - bbox[1]}+{bbox[0]}+{bbox[1] - 22}')
@@ -1217,12 +1530,18 @@ class Notepad(tk.Tk):
         self.update()
 
     def _control_handler(self, event):
+        """Обрабатывает сочетания клавиш для управления редактором.
+
+        Args:
+            event (tk.Event): Событие клавиатуры
+        """
         if event.keycode == 70:  # Ctrl+F
             self._find_text()
         elif event.keycode == 74:  # Ctrl+J
             self._remove_line_breaks()
 
     def _remove_line_breaks(self):
+        """Удаляет переносы строк в выделенном тексте (Ctrl+J)."""
         try:
             sel_start, sel_end = self.text.tag_ranges('sel')
             selected_text = self.text.get(sel_start, sel_end)
@@ -1232,6 +1551,7 @@ class Notepad(tk.Tk):
             pass
 
     def _find_text(self):
+        """Активирует панель поиска текста (Ctrl+F)."""
         self.find_window.pack(side='right', padx=5, pady=5)
         self.results.pack(side='right', padx=5, pady=5)
         if sel_range := self.text.tag_ranges('sel'):
@@ -1242,6 +1562,7 @@ class Notepad(tk.Tk):
         self.find_window.icursor('end')
 
     def _close_find(self):
+        """Закрывает панель поиска (Esc или Ctrl+F)."""
         self.find_window.pack_forget()
         self.results.pack_forget()
         self.results.configure(text='')
@@ -1249,7 +1570,17 @@ class Notepad(tk.Tk):
         self.text.focus_set()
 
     def _highlight_matches(self):
+        """Подсвечивает совпадения при поиске, и показывает статистику."""
         def get_plural(amount, variants):
+            """Возвращает правильную форму слова для числа.
+
+            Args:
+                amount (int): Количество
+                variants (list): Варианты форм (ед.ч., мн.ч., мн.ч. (для 5+))
+
+            Returns:
+                str: Строка с числом и правильной формой слова
+            """
             assert len(variants) == 3
             if amount % 10 == 1 and amount % 100 != 11:
                 plural = variants[0]
@@ -1291,6 +1622,11 @@ class Notepad(tk.Tk):
 
     @staticmethod
     def _layout():
+        """Определяет текущую раскладку клавиатуры.
+
+        Returns:
+            str: Код раскладки ('ru' или 'en')
+        """
         user32_dll = ctypes.windll.LoadLibrary('user32.dll')
         func_ptr = user32_dll.GetKeyboardLayout
         code_page = hex(func_ptr(0))
@@ -1300,6 +1636,11 @@ class Notepad(tk.Tk):
         return layout
 
     def _key_handler(self, event):
+        """Обрабатывает специальные символы, автозамену кавычек, закрытие скобок.
+
+        Args:
+            event (tk.Event): Событие клавиатуры
+        """
         position = self.text.index('insert')
         try:
             sel_start, sel_end = self.text.tag_ranges('sel')
@@ -1335,6 +1676,7 @@ class Notepad(tk.Tk):
                     return 'break'
 
     def _recognize_links(self):
+        """Автоматически обнаруживает URL-адреса и email в тексте, добавляет гиперссылки."""
         self.text.tag_remove('link', '1.0', 'end')
         regex = (r'(\b(http|ftp|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])\b)|'
                  r'(\b\w+@(?=.*?\.)[\w.]+\b)')
@@ -1344,21 +1686,33 @@ class Notepad(tk.Tk):
             self.text.tag_add('link', start, end)
 
     def _on_enter_link(self, event):
+        """Подсвечивает ссылку при наведении, и изменяет курсор.
+
+        Args:
+            event (tk.Event): Событие наведения мыши
+        """
         self.text['cursor'] = 'hand2'
         link = self.Link(self.text, event.x, event.y)
         self.text.tag_add('hover', *link.range)
 
     def _on_leave_link(self):
+        """Восстанавливает стандартный курсор и убирает подсветку ссылки."""
         self.text['cursor'] = 'xterm'
         self.text.tag_remove('hover', '1.0', 'end')
 
     def _open_link(self, event):
+        """Открывает ссылку в браузере по клику.
+
+        Args:
+            event (tk.Event): Событие клика мыши
+        """
         link = self.Link(self.text, event.x, event.y)
         if '@' in link.url:
             link.url = 'mailto:' + link.url
         webbrowser.open(link.url)
 
     def _tab_change(self):
+        """Обрабатывает переключение между вкладками с разными типами данных."""
         selected_tab = self.tabs.index(self.tabs.select())
         self.text.tag_remove('all', '1.0', 'end')
         current_text = self.text.get('1.0', 'end-1c')
@@ -1371,6 +1725,11 @@ class Notepad(tk.Tk):
         self.current_tab = selected_tab
 
     def _context_menu(self, event):
+        """Показывает контекстное меню с опциями: копирование, поиск в Яндексе и др.
+
+        Args:
+            event (tk.Event): Событие правого клика мыши
+        """
         index = self.text.index(f'@{event.x},{event.y}')
         self.text.mark_set('insert', index)
         if 'sel' not in self.text.tag_names(index):
@@ -1410,6 +1769,7 @@ class Notepad(tk.Tk):
         self.context_menu.tk.call('tk_popup', self.context_menu, event.x_root, event.y_root)
 
     def _change_case(self):
+        """Изменяет регистр выделенного текста (Shift+F3)."""
         try:
             sel_start, sel_end = self.text.tag_ranges('sel')
         except ValueError:
@@ -1428,6 +1788,7 @@ class Notepad(tk.Tk):
         self.text.tag_add('sel', sel_start, sel_end)
 
     def _on_destroy(self):
+        """Обработчик закрытия окна: сохраняет текст в буфер обмена."""
         self.clipboard_clear()
         self.clipboard_append(self.text.get('1.0', 'end-1c'))
         self.update()
@@ -1435,6 +1796,14 @@ class Notepad(tk.Tk):
 
 
 def launcher(_, __, button, pressed):
+    """Глобальный обработчик событий мыши для активации приложения.
+
+    Args:
+        _ (int): X координата события (игнорируется в обработчике)
+        __ (int): Y координата события (игнорируется в обработчике)
+        button (mouse.Button): Нажатая кнопка мыши
+        pressed (bool): Состояние кнопки (нажата/отпущена)
+    """
     def ask_user_about(status):
         action = f'{('Включить', 'Отключить')[status]} SilentScreenShoter?'
         header = 'SilentScreenShoter'
