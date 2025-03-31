@@ -119,8 +119,7 @@ class Application(tk.Tk):
         self.recognize_button = ttk.Button(self.panel, text='Распознать', command=lambda: self._recognize())
         done_txt = tk.StringVar(value='Ok')
         self.done_button = ttk.Button(self.panel, textvariable=done_txt, command=lambda: self._done())
-
-        self.done_button.bind('<Button-3>', lambda e: self.destroy())
+        self.done_button.bind('<Button-3>', lambda e: [self.panel_hint.hide(), self.destroy()])
 
         self.bind('<F1>', lambda e: self._set_arrow())
         self.bind('<F2>', lambda e: self._set_pen())
