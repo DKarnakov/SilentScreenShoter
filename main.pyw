@@ -83,12 +83,12 @@ class Application(tk.Tk):
         def _drag_start(self, event):
             if self.function_on_start:
                 self.function_on_start()
-            self.widget.drag_start_x = event.x
-            self.widget.drag_start_y = event.y
+            self.drag_start_x = event.x
+            self.drag_start_y = event.y
 
         def _drag_motion(self, event):
-            x = self.widget.winfo_x() - self.widget.drag_start_x + event.x
-            y = self.widget.winfo_y() - self.widget.drag_start_y + event.y
+            x = self.widget.winfo_x() - self.drag_start_x + event.x
+            y = self.widget.winfo_y() - self.drag_start_y + event.y
             self.widget.place(x=x, y=y)
 
     def __init__(self):
