@@ -116,6 +116,7 @@ class Application(tk.Tk):
         self.border = None
         self.palette = ['red', 'orange', 'yellow', 'lime', 'cyan', 'blue', 'magenta', 'white', 'black']
         self.color = 0
+        self.colorspace = 'hex'
         self.num = 1
         self.corner = {}
         self.image_stack = []
@@ -244,15 +245,11 @@ class Application(tk.Tk):
         # save color
         elif event.state == 131084 and event.keycode == 67:  # Ctrl+Alt+C
             hex_color = self.canvas.itemcget('z_33', 'fill')
-            red = int(hex_color[1:3], base=16)
-            green = int(hex_color[3:5], base=16)
-            blue = int(hex_color[5:7], base=16)
-            h, s, v = rgb_to_hsv(red / 255, green / 255, blue / 255)
-            hls = rgb_to_hls(red / 255, green / 255, blue / 255)
-            color_txt = (f'HEX: {hex_color}\n'
-                         f'RGB: rgb({red}, {green}, {blue})\n'
-                         f'HSL: hsl({hls[0] * 360:.0f}, {hls[2]:.0%}, {hls[1]:.0%})\n'
-                         f'HSV: {h * 360:.0f}° {s:.0%} {v:.0%}')
+            color_txt = (f'{self._get_color_by_space(hex_color, 'hex')[1]}\n'
+                         f'{self._get_color_by_space(hex_color, 'rgb')[1]}\n'
+                         f'{self._get_color_by_space(hex_color, 'hsl')[1]}\n'
+                         f'{self._get_color_by_space(hex_color, 'hsv')[1]}\n'
+                         f'{self._get_color_by_space(hex_color, 'ral')[1]}')
             self.clipboard_clear()
             self.clipboard_append(color_txt)
             self.update()
@@ -314,9 +311,9 @@ class Application(tk.Tk):
         self.canvas.itemconfig('precision', state='hidden')
 
         self.bind('<KeyPress-Alt_L>', lambda e: self._precision())
-        self.bind('<KeyRelease-Alt_L>', lambda e: self.canvas.itemconfig('precision', state='hidden'))
+        self.bind('<KeyRelease-Alt_L>', lambda e: self._stop_precision())
         self.bind('<KeyPress-Alt_R>', lambda e: self._precision())
-        self.bind('<KeyRelease-Alt_R>', lambda e: self.canvas.itemconfig('precision', state='hidden'))
+        self.bind('<KeyRelease-Alt_R>', lambda e: self._stop_precision())
         self.bind('<Alt-Button-1>', lambda e: self._set_color(color='0'))
         self.bind('<Control-KeyPress>', lambda e: self._control(e))
 
@@ -347,20 +344,306 @@ class Application(tk.Tk):
                 self.canvas.itemconfig(f'z_{row}{col}', fill=f'#{r:02x}{g:02x}{b:02x}')
                 self.canvas.moveto(f'z_{row}{col}', x - 35 + col * 10, y - 30 + row * 10 + 70)
 
-        self.cursor_color = self.canvas.itemcget('z_33', 'fill').upper()
+        self.cursor_color = self.canvas.itemcget('z_33', 'fill')
         hex_red = int(self.cursor_color[1:3], base=16)
         hex_green = int(self.cursor_color[3:5], base=16)
         hex_blue = int(self.cursor_color[5:7], base=16)
         luminance = hex_red * 0.2126 + hex_green * 0.7152 + hex_blue * 0.0722
-        self.canvas.itemconfig(self.color_pick, text=self.cursor_color,
+        self.canvas.itemconfig(self.color_pick, text=self._get_color_by_space(self.cursor_color, self.colorspace)[0],
                                fill='lightgrey' if luminance < 140 else 'black')
         self.canvas.itemconfig(self.color_pick_bg, fill=self.cursor_color, outline='black')
         height_pick = self.canvas.bbox(self.color_pick)[3] - self.canvas.bbox(self.color_pick)[1]
         width_pick = self.canvas.bbox(self.color_pick)[2] - self.canvas.bbox(self.color_pick)[0]
         self.canvas.moveto(self.color_pick, x - width_pick // 2 + 1, y - height_pick - 32 + 70)
-        self.canvas.coords(self.color_pick_bg, (x - 34, y - height_pick - 32 + 70, x + 36, y - 32 + 70))
+        self.canvas.coords(self.color_pick_bg, (min(x - 34, x - width_pick // 2), y - height_pick - 32 + 70,
+                                                max(x + 36, x + width_pick // 2 + 2), y - 32 + 70))
         self.canvas.tag_raise('precision')
         self.canvas.tag_raise('z_33')
+
+        self.bind('<MouseWheel>', lambda e: self._change_colorspace(e))
+
+    def _stop_precision(self):
+        """Завершение режима прецизионных измерений (Alt)"""
+        self.canvas.itemconfig('precision', state='hidden')
+        self.unbind('<MouseWheel>')
+
+    def _change_colorspace(self, event):
+        """Изменяет цветовое пространство определения цвета пикселя.
+
+        Args:
+            event (tk.Event): Событие колеса мыши
+        """
+        spaces = ['hex', 'rgb', 'hsl', 'hsv', 'ral']
+        colorspace = spaces.index(self.colorspace)
+        colorspace += 1 if event.delta > 0 else -1
+        self.colorspace = spaces[colorspace % 5]
+
+    @staticmethod
+    def _get_color_by_space(hex_color, space):
+        """Конвертирует HEX-цвет в указанное цветовое пространство.
+
+            Args:
+                hex_color (str): Цвет в HEX-формате (#RRGGBB)
+                space (str): Целевое цветовое пространство:
+                             'hex' - HEX (#RRGGBB)
+                             'rgb' - RGB (R, G, B)
+                             'hsl' - HSL (H°, S%, L%)
+                             'hsv' - HSV (H° S% V%)
+                             'ral' - RAL Classic
+
+            Returns:
+                list: Цвет в указанном формате, отформатированный для вывода и сохранения
+            """
+        red = int(hex_color[1:3], base=16)
+        green = int(hex_color[3:5], base=16)
+        blue = int(hex_color[5:7], base=16)
+
+        match space:
+            case 'hex':
+                return [hex_color.upper(),
+                        f'HEX: {hex_color}']
+            case 'rgb':
+                return [f'R:{red}, G:{green}, B:{blue}',
+                        f'RGB: rgb({red}, {green}, {blue})']
+            case 'hsl':
+                hls = rgb_to_hls(red / 255, green / 255, blue / 255)
+                return [f'H:{hls[0] * 360:.0f} S:{hls[2]:.0%} L:{hls[1]:.0%}',
+                        f'HSL: hsl({hls[0] * 360:.0f}, {hls[2]:.0%}, {hls[1]:.0%})']
+            case 'hsv':
+                h, s, v = rgb_to_hsv(red / 255, green / 255, blue / 255)
+                return [f'H:{h * 360:.0f}° S:{s:.0%} V:{v:.0%}',
+                        f'HSV: {h * 360:.0f}° {s:.0%} {v:.0%}']
+            case 'ral':
+                ral_colors = (
+                {'RAL': '1000', 'rgb': (205, 186, 136), 'eng': 'Green beige', 'rus': 'Зелено-бежевый'},
+                {'RAL': '1001', 'rgb': (208, 176, 132), 'eng': 'Beige', 'rus': 'Бежевый'},
+                {'RAL': '1002', 'rgb': (210, 170, 109), 'eng': 'Sand yellow', 'rus': 'Песочно-желтый'},
+                {'RAL': '1003', 'rgb': (249, 169, 0), 'eng': 'Signal yellow', 'rus': 'Сигнальный желтый'},
+                {'RAL': '1004', 'rgb': (228, 158, 0), 'eng': 'Golden yellow', 'rus': 'Золотисто-желтый'},
+                {'RAL': '1005', 'rgb': (203, 143, 0), 'eng': 'Honey yellow', 'rus': 'Медово-желтый'},
+                {'RAL': '1006', 'rgb': (225, 144, 0), 'eng': 'Maize yellow', 'rus': 'Кукурузно-желтый'},
+                {'RAL': '1007', 'rgb': (232, 140, 0), 'eng': 'Daffodil yellow', 'rus': 'Желтый нарцисс'},
+                {'RAL': '1011', 'rgb': (175, 128, 80), 'eng': 'Brown beige', 'rus': 'Коричнево-бежевый'},
+                {'RAL': '1012', 'rgb': (221, 175, 40), 'eng': 'Lemon yellow', 'rus': 'Лимонно-желтый'},
+                {'RAL': '1013', 'rgb': (227, 217, 199), 'eng': 'Oyster white', 'rus': 'Жемчужно-белый'},
+                {'RAL': '1014', 'rgb': (221, 196, 155), 'eng': 'Ivory', 'rus': 'Слоновая кость'},
+                {'RAL': '1015', 'rgb': (230, 210, 181), 'eng': 'Light ivory', 'rus': 'Светлая слоновая кость'},
+                {'RAL': '1016', 'rgb': (241, 221, 57), 'eng': 'Sulfur yellow', 'rus': 'Желтая сера'},
+                {'RAL': '1017', 'rgb': (246, 169, 81), 'eng': 'Saffron yellow', 'rus': 'Шафраново-желтый'},
+                {'RAL': '1018', 'rgb': (250, 202, 49), 'eng': 'Zinc yellow', 'rus': 'Цинково-желтый'},
+                {'RAL': '1019', 'rgb': (164, 143, 122), 'eng': 'Grey beige', 'rus': 'Серо-бежевый'},
+                {'RAL': '1020', 'rgb': (160, 143, 101), 'eng': 'Olive yellow', 'rus': 'Оливково-желтый'},
+                {'RAL': '1021', 'rgb': (246, 182, 0), 'eng': 'Colza yellow', 'rus': 'Рапсово-желтый'},
+                {'RAL': '1023', 'rgb': (247, 181, 0), 'eng': 'Traffic yellow', 'rus': 'Транспортный желтый'},
+                {'RAL': '1024', 'rgb': (186, 143, 76), 'eng': 'Ochre yellow', 'rus': 'Охра желтая'},
+                {'RAL': '1026', 'rgb': (255, 255, 0), 'eng': 'Luminous yellow', 'rus': 'Люминесцентно-желтый'},
+                {'RAL': '1027', 'rgb': (167, 127, 15), 'eng': 'Curry', 'rus': 'Желтое карри'},
+                {'RAL': '1028', 'rgb': (255, 156, 0), 'eng': 'Melon yellow', 'rus': 'Дынно-желтый'},
+                {'RAL': '1032', 'rgb': (226, 163, 0), 'eng': 'Broom yellow', 'rus': 'Жёлтый ракитник'},
+                {'RAL': '1033', 'rgb': (249, 154, 29), 'eng': 'Dahlia yellow', 'rus': 'Георгиново-желтый'},
+                {'RAL': '1034', 'rgb': (235, 156, 82), 'eng': 'Pastel yellow', 'rus': 'Пастельно-желтый'},
+                {'RAL': '1035', 'rgb': (143, 131, 112), 'eng': 'Pearl beige', 'rus': 'Жемчужно'},
+                {'RAL': '1036', 'rgb': (128, 100, 64), 'eng': 'Pearl gold', 'rus': 'Жемчужно-золотой'},
+                {'RAL': '1037', 'rgb': (240, 146, 0), 'eng': 'Sun yellow', 'rus': 'Солнечно-желтый'},
+                {'RAL': '2000', 'rgb': (218, 110, 0), 'eng': 'Yellow orange', 'rus': 'Желто-оранжевый'},
+                {'RAL': '2001', 'rgb': (186, 72, 28), 'eng': 'Red orange', 'rus': 'Красно-оранжевый'},
+                {'RAL': '2002', 'rgb': (191, 57, 34), 'eng': 'Vermilion', 'rus': 'Алый'},
+                {'RAL': '2003', 'rgb': (246, 120, 41), 'eng': 'Pastel orange', 'rus': 'Пастельно-оранжевый'},
+                {'RAL': '2004', 'rgb': (226, 83, 4), 'eng': 'Pure orange', 'rus': 'Чистый оранжевый'},
+                {'RAL': '2005', 'rgb': (255, 77, 8), 'eng': 'Luminous orange', 'rus': 'Люминесцентно-оранжевый'},
+                {'RAL': '2007', 'rgb': (255, 178, 0), 'eng': 'Luminous bright orange',
+                 'rus': 'Люминесцентный ярко-оранжевый'},
+                {'RAL': '2008', 'rgb': (236, 107, 34), 'eng': 'Bright red orange', 'rus': 'Ярко-красно-оранжевый'},
+                {'RAL': '2009', 'rgb': (222, 83, 8), 'eng': 'Traffic orange', 'rus': 'Транспортный оранжевый'},
+                {'RAL': '2010', 'rgb': (208, 93, 41), 'eng': 'Signal orange', 'rus': 'Сигнальный оранжевый'},
+                {'RAL': '2011', 'rgb': (226, 110, 15), 'eng': 'Deep orange', 'rus': 'Насыщенный оранжевый'},
+                {'RAL': '2012', 'rgb': (213, 101, 78), 'eng': 'Salmon orange', 'rus': 'Лососево-оранжевый'},
+                {'RAL': '2013', 'rgb': (146, 62, 37), 'eng': 'Pearl orange', 'rus': 'Жемчужно-оранжевый'},
+                {'RAL': '2017', 'rgb': (252, 85, 0), 'eng': 'RAL orange', 'rus': 'RAL Оранжевый'},
+                {'RAL': '3000', 'rgb': (167, 41, 32), 'eng': 'Flame red', 'rus': 'Огненно-красный'},
+                {'RAL': '3001', 'rgb': (155, 36, 35), 'eng': 'Signal red', 'rus': 'Сигнальный красный'},
+                {'RAL': '3002', 'rgb': (155, 35, 33), 'eng': 'Carmine red', 'rus': 'Карминно-красный'},
+                {'RAL': '3003', 'rgb': (134, 26, 34), 'eng': 'Ruby red', 'rus': 'Рубиново-красный'},
+                {'RAL': '3004', 'rgb': (107, 28, 35), 'eng': 'Purple red', 'rus': 'Пурпурно-красный'},
+                {'RAL': '3005', 'rgb': (89, 25, 31), 'eng': 'Wine red', 'rus': 'Винно-красный'},
+                {'RAL': '3007', 'rgb': (62, 32, 34), 'eng': 'Black red', 'rus': 'Черно-красный'},
+                {'RAL': '3009', 'rgb': (109, 52, 45), 'eng': 'Oxide red', 'rus': 'Красная окись'},
+                {'RAL': '3011', 'rgb': (120, 36, 35), 'eng': 'Brown red', 'rus': 'Коричнево-красный'},
+                {'RAL': '3012', 'rgb': (197, 133, 109), 'eng': 'Beige red', 'rus': 'Бежево-красный'},
+                {'RAL': '3013', 'rgb': (151, 46, 37), 'eng': 'Tomato red', 'rus': 'Томатно-красный'},
+                {'RAL': '3014', 'rgb': (203, 115, 117), 'eng': 'Antique pink', 'rus': 'Темно-розовый'},
+                {'RAL': '3015', 'rgb': (216, 160, 166), 'eng': 'Light pink', 'rus': 'Светло-розовый'},
+                {'RAL': '3016', 'rgb': (166, 61, 48), 'eng': 'Coral red', 'rus': 'Кораллово-красный'},
+                {'RAL': '3017', 'rgb': (202, 85, 93), 'eng': 'Rose', 'rus': 'Розовый'},
+                {'RAL': '3018', 'rgb': (198, 63, 74), 'eng': 'Strawberry red', 'rus': 'Клубнично-красный'},
+                {'RAL': '3020', 'rgb': (187, 31, 17), 'eng': 'Traffic red', 'rus': 'Транспортный красный'},
+                {'RAL': '3022', 'rgb': (207, 105, 85), 'eng': 'Salmon pink', 'rus': 'Лососево-красный'},
+                {'RAL': '3024', 'rgb': (255, 45, 33), 'eng': 'Luminous red', 'rus': 'Люминесцентный красный'},
+                {'RAL': '3026', 'rgb': (255, 42, 28), 'eng': 'Luminous bright red',
+                 'rus': 'Люминесцентный ярко-красный'},
+                {'RAL': '3027', 'rgb': (171, 39, 60), 'eng': 'Raspberry red', 'rus': 'Малиновый'},
+                {'RAL': '3028', 'rgb': (204, 44, 36), 'eng': 'Pure red', 'rus': 'Красный'},
+                {'RAL': '3031', 'rgb': (166, 52, 55), 'eng': 'Orient red', 'rus': 'Восточный красный'},
+                {'RAL': '3032', 'rgb': (112, 29, 36), 'eng': 'Pearl ruby red', 'rus': 'Перламутрово-рубиновый'},
+                {'RAL': '3033', 'rgb': (165, 58, 46), 'eng': 'Pearl pink', 'rus': 'Перламутрово-розовый'},
+                {'RAL': '4001', 'rgb': (129, 97, 131), 'eng': 'Red lilac', 'rus': 'Красно-сиреневый'},
+                {'RAL': '4002', 'rgb': (141, 60, 75), 'eng': 'Red violet', 'rus': 'Красно-фиолетовый'},
+                {'RAL': '4003', 'rgb': (196, 97, 140), 'eng': 'Heather violet', 'rus': 'Вересково-фиолетовый'},
+                {'RAL': '4004', 'rgb': (101, 30, 56), 'eng': 'Claret violet', 'rus': 'Бордово-фиолетовый'},
+                {'RAL': '4005', 'rgb': (118, 104, 154), 'eng': 'Blue lilac', 'rus': 'Сине-сиреневый'},
+                {'RAL': '4006', 'rgb': (144, 51, 115), 'eng': 'Traffic purple', 'rus': 'Транспортный пурпурный'},
+                {'RAL': '4007', 'rgb': (71, 36, 60), 'eng': 'Purple violet', 'rus': 'Пурпурно-фиолетовый'},
+                {'RAL': '4008', 'rgb': (132, 76, 130), 'eng': 'Signal violet', 'rus': 'Сигнальный фиолетовый'},
+                {'RAL': '4009', 'rgb': (157, 134, 146), 'eng': 'Pastel violet', 'rus': 'Пастельно-фиолетовый'},
+                {'RAL': '4010', 'rgb': (187, 64, 119), 'eng': 'Telemagenta', 'rus': 'Телемагента'},
+                {'RAL': '4011', 'rgb': (110, 99, 135), 'eng': 'Pearl violet', 'rus': 'Жемчужно-фиолетовый'},
+                {'RAL': '4012', 'rgb': (106, 107, 127), 'eng': 'Pearl blackberry', 'rus': 'Жемчужно-ежевичный'},
+                {'RAL': '5000', 'rgb': (48, 79, 110), 'eng': 'Violet blue', 'rus': 'Фиолетово-синий'},
+                {'RAL': '5001', 'rgb': (14, 76, 100), 'eng': 'Green blue', 'rus': 'Зелено-синий'},
+                {'RAL': '5002', 'rgb': (0, 56, 122), 'eng': 'Ultramarine blue', 'rus': 'Ультрамарин'},
+                {'RAL': '5003', 'rgb': (31, 56, 85), 'eng': 'Sapphire blue', 'rus': 'Сапфирово-синий'},
+                {'RAL': '5004', 'rgb': (25, 30, 40), 'eng': 'Black blue', 'rus': 'Черно-синий'},
+                {'RAL': '5005', 'rgb': (0, 83, 135), 'eng': 'Signal blue', 'rus': 'Сигнальный синий'},
+                {'RAL': '5007', 'rgb': (55, 107, 140), 'eng': 'Brillant blue', 'rus': 'Бриллиантово-синий'},
+                {'RAL': '5008', 'rgb': (43, 58, 68), 'eng': 'Grey blue', 'rus': 'Серо-синий'},
+                {'RAL': '5009', 'rgb': (33, 95, 120), 'eng': 'Azure blue', 'rus': 'Лазурно-синий'},
+                {'RAL': '5010', 'rgb': (0, 79, 124), 'eng': 'Gentian blue', 'rus': 'Генцианово-синий'},
+                {'RAL': '5011', 'rgb': (26, 43, 60), 'eng': 'Steel blue', 'rus': 'Стальной синий'},
+                {'RAL': '5012', 'rgb': (0, 137, 182), 'eng': 'Light blue', 'rus': 'Голубой'},
+                {'RAL': '5013', 'rgb': (25, 49, 83), 'eng': 'Cobalt blue', 'rus': 'Кобальтово-синий'},
+                {'RAL': '5014', 'rgb': (99, 125, 150), 'eng': 'Pigeon blue', 'rus': 'Голубино-синий'},
+                {'RAL': '5015', 'rgb': (0, 124, 175), 'eng': 'Sky blue', 'rus': 'Небесно-синий'},
+                {'RAL': '5017', 'rgb': (0, 91, 140), 'eng': 'Traffic blue', 'rus': 'Транспортный синий'},
+                {'RAL': '5018', 'rgb': (4, 139, 140), 'eng': 'Turquoise blue', 'rus': 'Бирюзово-синий'},
+                {'RAL': '5019', 'rgb': (0, 94, 131), 'eng': 'Capri blue', 'rus': 'Синий капри'},
+                {'RAL': '5020', 'rgb': (0, 65, 75), 'eng': 'Ocean blue', 'rus': 'Океанская синь'},
+                {'RAL': '5021', 'rgb': (0, 117, 119), 'eng': 'Water blue', 'rus': 'Водная синь'},
+                {'RAL': '5022', 'rgb': (34, 45, 90), 'eng': 'Night blue', 'rus': 'Ночной синий'},
+                {'RAL': '5023', 'rgb': (65, 105, 140), 'eng': 'Distant blue', 'rus': 'Отдаленно-синий'},
+                {'RAL': '5024', 'rgb': (96, 147, 172), 'eng': 'Pastel blue', 'rus': 'Пастельно-синий'},
+                {'RAL': '5025', 'rgb': (32, 105, 124), 'eng': 'Pearl gentian blue', 'rus': 'Жемчужно-генцианово-синий'},
+                {'RAL': '5026', 'rgb': (15, 48, 82), 'eng': 'Pearl night blue', 'rus': 'Жемчужно-ночной-синий'},
+                {'RAL': '6000', 'rgb': (60, 116, 96), 'eng': 'Patina green', 'rus': 'Патиново-зеленый'},
+                {'RAL': '6001', 'rgb': (54, 103, 53), 'eng': 'Emerald green', 'rus': 'Изумрудно-зеленый'},
+                {'RAL': '6002', 'rgb': (50, 89, 40), 'eng': 'Leaf green', 'rus': 'Лиственно-зеленый'},
+                {'RAL': '6003', 'rgb': (80, 83, 60), 'eng': 'Olive green', 'rus': 'Оливково-зеленый'},
+                {'RAL': '6004', 'rgb': (2, 68, 66), 'eng': 'Blue green', 'rus': 'Сине-зеленый'},
+                {'RAL': '6005', 'rgb': (17, 66, 50), 'eng': 'Moss green', 'rus': 'Зеленый мох'},
+                {'RAL': '6006', 'rgb': (60, 57, 46), 'eng': 'Grey olive', 'rus': 'Серо-оливковый'},
+                {'RAL': '6007', 'rgb': (44, 50, 34), 'eng': 'Bottle green', 'rus': 'Бутылочно-зеленый'},
+                {'RAL': '6008', 'rgb': (54, 52, 42), 'eng': 'Brown green', 'rus': 'Коричнево-зеленый'},
+                {'RAL': '6009', 'rgb': (39, 53, 42), 'eng': 'Fir green', 'rus': 'Пихтовый зеленый'},
+                {'RAL': '6010', 'rgb': (77, 111, 57), 'eng': 'Grass green', 'rus': 'Травяной зеленый'},
+                {'RAL': '6011', 'rgb': (107, 124, 89), 'eng': 'Reseda green', 'rus': 'Резедово-зеленый'},
+                {'RAL': '6012', 'rgb': (47, 61, 58), 'eng': 'Black green', 'rus': 'Черно-зеленый'},
+                {'RAL': '6013', 'rgb': (124, 118, 90), 'eng': 'Reed green', 'rus': 'Тростниково-зеленый'},
+                {'RAL': '6014', 'rgb': (71, 65, 53), 'eng': 'Yellow olive', 'rus': 'Желто-оливковый'},
+                {'RAL': '6015', 'rgb': (61, 61, 54), 'eng': 'Black olive', 'rus': 'Черно-оливковый'},
+                {'RAL': '6016', 'rgb': (0, 105, 76), 'eng': 'Turquoise green', 'rus': 'Бирюзово-зеленый'},
+                {'RAL': '6017', 'rgb': (88, 127, 64), 'eng': 'May green', 'rus': 'Майский зеленый'},
+                {'RAL': '6018', 'rgb': (96, 153, 59), 'eng': 'Yellow green', 'rus': 'Желто-зеленый'},
+                {'RAL': '6019', 'rgb': (185, 206, 172), 'eng': 'Pastel green', 'rus': 'Бело-зеленый'},
+                {'RAL': '6020', 'rgb': (55, 66, 47), 'eng': 'Chrome green', 'rus': 'Хромовый зеленый'},
+                {'RAL': '6021', 'rgb': (138, 153, 119), 'eng': 'Pale green', 'rus': 'Бледно-зеленый'},
+                {'RAL': '6022', 'rgb': (58, 51, 39), 'eng': 'Olive drab', 'rus': 'Коричнево-оливковый'},
+                {'RAL': '6024', 'rgb': (0, 131, 81), 'eng': 'Traffic green', 'rus': 'Транспортный зеленый'},
+                {'RAL': '6025', 'rgb': (94, 110, 59), 'eng': 'Fern green', 'rus': 'Папоротниковый зеленый'},
+                {'RAL': '6026', 'rgb': (0, 95, 78), 'eng': 'Opal green', 'rus': 'Опаловый зеленый'},
+                {'RAL': '6027', 'rgb': (126, 186, 181), 'eng': 'Light green', 'rus': 'Светло-зеленый'},
+                {'RAL': '6028', 'rgb': (49, 84, 66), 'eng': 'Pine green', 'rus': 'Сосновый зеленый'},
+                {'RAL': '6029', 'rgb': (0, 111, 61), 'eng': 'Mint green', 'rus': 'Мятно-зеленый'},
+                {'RAL': '6032', 'rgb': (35, 127, 82), 'eng': 'Signal green', 'rus': 'Сигнальный зеленый'},
+                {'RAL': '6033', 'rgb': (69, 135, 127), 'eng': 'Mint turquoise', 'rus': 'Мятно-бирюзовый'},
+                {'RAL': '6034', 'rgb': (122, 173, 172), 'eng': 'Pastel turquoise', 'rus': 'Пастельно-бирюзовый'},
+                {'RAL': '6035', 'rgb': (25, 77, 37), 'eng': 'Pearl green', 'rus': 'Перламутрово-зеленый'},
+                {'RAL': '6036', 'rgb': (4, 87, 75), 'eng': 'Pearl opal green', 'rus': 'Перламутрово-опаловый зеленый'},
+                {'RAL': '6037', 'rgb': (0, 139, 41), 'eng': 'Pure green', 'rus': 'Зеленый'},
+                {'RAL': '6038', 'rgb': (0, 181, 27), 'eng': 'Luminous green', 'rus': 'Люминесцентный зеленый'},
+                {'RAL': '6039', 'rgb': (179, 196, 62), 'eng': 'Fibrous green', 'rus': 'Зеленое волокно'},
+                {'RAL': '7000', 'rgb': (122, 136, 142), 'eng': 'Squirrel grey', 'rus': 'Серая белка'},
+                {'RAL': '7001', 'rgb': (140, 151, 156), 'eng': 'Silver grey', 'rus': 'Серебристо-серый'},
+                {'RAL': '7002', 'rgb': (129, 120, 99), 'eng': 'Olive grey', 'rus': 'Оливково-серый'},
+                {'RAL': '7003', 'rgb': (121, 118, 105), 'eng': 'Moss grey', 'rus': 'Серый мох'},
+                {'RAL': '7004', 'rgb': (154, 155, 155), 'eng': 'Signal grey', 'rus': 'Сигнальный серый'},
+                {'RAL': '7005', 'rgb': (107, 110, 107), 'eng': 'Mouse grey', 'rus': 'Мышино-серый'},
+                {'RAL': '7006', 'rgb': (118, 106, 94), 'eng': 'Beige grey', 'rus': 'Бежево-серый'},
+                {'RAL': '7008', 'rgb': (116, 95, 61), 'eng': 'Khaki grey', 'rus': 'Серое хаки'},
+                {'RAL': '7009', 'rgb': (93, 96, 88), 'eng': 'Green grey', 'rus': 'елено-серый'},
+                {'RAL': '7010', 'rgb': (88, 92, 86), 'eng': 'Tarpaulin grey', 'rus': 'Брезентово-серый'},
+                {'RAL': '7011', 'rgb': (82, 89, 93), 'eng': 'Iron grey', 'rus': 'Железно-серый'},
+                {'RAL': '7012', 'rgb': (87, 93, 94), 'eng': 'Basalt grey', 'rus': 'Базальтово-серый'},
+                {'RAL': '7013', 'rgb': (87, 80, 68), 'eng': 'Brown grey', 'rus': 'Коричнево-серый'},
+                {'RAL': '7015', 'rgb': (79, 83, 88), 'eng': 'Slate grey', 'rus': 'Сланцево-серый'},
+                {'RAL': '7016', 'rgb': (56, 62, 66), 'eng': 'Anthracite grey', 'rus': 'Антрацитово-серый'},
+                {'RAL': '7021', 'rgb': (47, 50, 52), 'eng': 'Black grey', 'rus': 'Черно-серый'},
+                {'RAL': '7022', 'rgb': (76, 74, 68), 'eng': 'Umbra grey', 'rus': 'Серая умбра'},
+                {'RAL': '7023', 'rgb': (128, 128, 118), 'eng': 'Concrete grey', 'rus': 'Серый бетон'},
+                {'RAL': '7024', 'rgb': (69, 73, 78), 'eng': 'Graphite grey', 'rus': 'Графитовый серый'},
+                {'RAL': '7026', 'rgb': (55, 67, 69), 'eng': 'Granite grey', 'rus': 'Гранитовый серый'},
+                {'RAL': '7030', 'rgb': (146, 142, 133), 'eng': 'Stone grey', 'rus': 'Каменно-серый'},
+                {'RAL': '7031', 'rgb': (91, 104, 109), 'eng': 'Blue grey', 'rus': 'Сине-серый'},
+                {'RAL': '7032', 'rgb': (181, 176, 161), 'eng': 'Pebble grey', 'rus': 'Галечный серый'},
+                {'RAL': '7033', 'rgb': (127, 130, 116), 'eng': 'Cement grey', 'rus': 'Цементно-серый'},
+                {'RAL': '7034', 'rgb': (146, 136, 111), 'eng': 'Yellow grey', 'rus': 'Желто-серый'},
+                {'RAL': '7035', 'rgb': (197, 199, 196), 'eng': 'Light grey', 'rus': 'Светло-серый'},
+                {'RAL': '7036', 'rgb': (151, 147, 146), 'eng': 'Platinum grey', 'rus': 'Платиново-серый'},
+                {'RAL': '7037', 'rgb': (122, 123, 122), 'eng': 'Dusty grey', 'rus': 'Пыльно-серый'},
+                {'RAL': '7038', 'rgb': (176, 176, 169), 'eng': 'Agate grey', 'rus': 'Агатовый серый'},
+                {'RAL': '7039', 'rgb': (107, 102, 94), 'eng': 'Quartz grey', 'rus': 'Кварцевый серый'},
+                {'RAL': '7040', 'rgb': (152, 158, 161), 'eng': 'Window grey', 'rus': 'Серое окно'},
+                {'RAL': '7042', 'rgb': (142, 146, 145), 'eng': 'Traffic grey A', 'rus': 'Транспортный серый А'},
+                {'RAL': '7043', 'rgb': (79, 82, 80), 'eng': 'Traffic grey B', 'rus': 'Транспортный серый В'},
+                {'RAL': '7044', 'rgb': (183, 179, 168), 'eng': 'Silk grey', 'rus': 'Серый шелк'},
+                {'RAL': '7045', 'rgb': (141, 146, 149), 'eng': 'Telegrey 1', 'rus': 'Телегрей 1'},
+                {'RAL': '7046', 'rgb': (126, 134, 138), 'eng': 'Telegrey 2', 'rus': 'Телегрей 2'},
+                {'RAL': '7047', 'rgb': (200, 200, 199), 'eng': 'Telegrey 4', 'rus': 'Телегрей 4'},
+                {'RAL': '7048', 'rgb': (129, 123, 115), 'eng': 'Pearl mouse grey', 'rus': 'Перламутровый мышино-серый'},
+                {'RAL': '8000', 'rgb': (137, 105, 63), 'eng': 'Green brown', 'rus': 'Зелено-коричневый'},
+                {'RAL': '8001', 'rgb': (157, 98, 43), 'eng': 'Ochre brown', 'rus': 'Охра коричневая'},
+                {'RAL': '8002', 'rgb': (121, 77, 62), 'eng': 'Signal brown', 'rus': 'Сигнальный коричневый'},
+                {'RAL': '8003', 'rgb': (126, 75, 39), 'eng': 'Clay brown', 'rus': 'Глиняный коричневый'},
+                {'RAL': '8004', 'rgb': (141, 73, 49), 'eng': 'Copper brown', 'rus': 'Медно-коричневый'},
+                {'RAL': '8007', 'rgb': (112, 70, 43), 'eng': 'Fawn brown', 'rus': 'Палево-коричневый'},
+                {'RAL': '8008', 'rgb': (114, 74, 37), 'eng': 'Olive brown', 'rus': 'Оливково-коричневый'},
+                {'RAL': '8011', 'rgb': (90, 56, 39), 'eng': 'Nut brown', 'rus': 'Орехово-коричневый'},
+                {'RAL': '8012', 'rgb': (102, 51, 43), 'eng': 'Red brown', 'rus': 'Красно-коричневый'},
+                {'RAL': '8014', 'rgb': (74, 53, 38), 'eng': 'Sepia brown', 'rus': 'Сепия коричневый'},
+                {'RAL': '8015', 'rgb': (94, 47, 38), 'eng': 'Chestnut brown', 'rus': 'Каштаново-коричневый'},
+                {'RAL': '8016', 'rgb': (76, 43, 32), 'eng': 'Mahogany brown', 'rus': 'Махагон коричневый'},
+                {'RAL': '8017', 'rgb': (68, 47, 41), 'eng': 'Chocolate brown', 'rus': 'Шоколадно-коричневый'},
+                {'RAL': '8019', 'rgb': (61, 54, 53), 'eng': 'Grey brown', 'rus': 'Серо-коричневый'},
+                {'RAL': '8022', 'rgb': (26, 23, 25), 'eng': 'Black brown', 'rus': 'Черно-коричневый'},
+                {'RAL': '8023', 'rgb': (164, 87, 41), 'eng': 'Orange brown', 'rus': 'Оранжево-коричневый'},
+                {'RAL': '8024', 'rgb': (121, 80, 56), 'eng': 'Beige brown', 'rus': 'Бежево-коричневый'},
+                {'RAL': '8025', 'rgb': (117, 88, 71), 'eng': 'Pale brown', 'rus': 'Бледно-коричневый'},
+                {'RAL': '8028', 'rgb': (81, 58, 42), 'eng': 'Terra brown', 'rus': 'Земельно-коричневый'},
+                {'RAL': '8029', 'rgb': (127, 64, 49), 'eng': 'Pearl copper', 'rus': 'Жемчужно-медный'},
+                {'RAL': '9001', 'rgb': (233, 224, 210), 'eng': 'Cream', 'rus': 'Кремово-белый'},
+                {'RAL': '9002', 'rgb': (214, 213, 203), 'eng': 'Grey white', 'rus': 'Серо-белый'},
+                {'RAL': '9003', 'rgb': (236, 236, 231), 'eng': 'Signal white', 'rus': 'Сигнальный белый'},
+                {'RAL': '9004', 'rgb': (43, 43, 44), 'eng': 'Signal black', 'rus': 'Сигнальный черный'},
+                {'RAL': '9005', 'rgb': (14, 14, 16), 'eng': 'Jet black', 'rus': 'Глубокий черный'},
+                {'RAL': '9006', 'rgb': (161, 161, 160), 'eng': 'White aluminium', 'rus': 'Бело-алюминиевый'},
+                {'RAL': '9007', 'rgb': (134, 133, 129), 'eng': 'Grey aluminium', 'rus': 'Серо-алюминиевый'},
+                {'RAL': '9010', 'rgb': (241, 237, 225), 'eng': 'Pure white', 'rus': 'Белый'},
+                {'RAL': '9011', 'rgb': (39, 41, 43), 'eng': 'Graphite black', 'rus': 'Графитовый черный'},
+                {'RAL': '9012', 'rgb': (248, 242, 225), 'eng': 'Cleanroom white', 'rus': 'Белый для чистых помещений'},
+                {'RAL': '9016', 'rgb': (241, 241, 234), 'eng': 'Traffic white', 'rus': 'Транспортный белый'},
+                {'RAL': '9017', 'rgb': (41, 41, 42), 'eng': 'Traffic black', 'rus': 'Транспортный черный'},
+                {'RAL': '9018', 'rgb': (200, 203, 196), 'eng': 'Papyrus white', 'rus': 'Папирусно-белый'},
+                {'RAL': '9022', 'rgb': (133, 133, 131), 'eng': 'Pearl light grey', 'rus': 'Жемчужный светло-серый'},
+                {'RAL': '9023', 'rgb': (120, 123, 122), 'eng': 'Pearl dark grey', 'rus': 'Жемчужный темно-серый'})
+
+                closest_color = None
+                min_distance = float('inf')
+
+                for color in ral_colors:
+                    distance = dist((red, green, blue), color['rgb'])
+                    if distance < min_distance:
+                        min_distance = distance
+                        closest_color = color
+                return [f'RAL {closest_color["RAL"]}', f'RAL: {closest_color["RAL"]}']
+
 
     def _set_color(self, color):
         """Устанавливает активный цвет для инструментов рисования.
