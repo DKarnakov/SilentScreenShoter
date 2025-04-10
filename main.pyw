@@ -516,7 +516,7 @@ class Application(tk.Tk):
                 {'RAL': '5003', 'rgb': (31, 56, 85), 'eng': 'Sapphire blue', 'rus': 'Сапфирово-синий'},
                 {'RAL': '5004', 'rgb': (25, 30, 40), 'eng': 'Black blue', 'rus': 'Черно-синий'},
                 {'RAL': '5005', 'rgb': (0, 83, 135), 'eng': 'Signal blue', 'rus': 'Сигнальный синий'},
-                {'RAL': '5007', 'rgb': (55, 107, 140), 'eng': 'Brillant blue', 'rus': 'Бриллиантово-синий'},
+                {'RAL': '5007', 'rgb': (55, 107, 140), 'eng': 'Brilliant blue', 'rus': 'Бриллиантово-синий'},
                 {'RAL': '5008', 'rgb': (43, 58, 68), 'eng': 'Grey blue', 'rus': 'Серо-синий'},
                 {'RAL': '5009', 'rgb': (33, 95, 120), 'eng': 'Azure blue', 'rus': 'Лазурно-синий'},
                 {'RAL': '5010', 'rgb': (0, 79, 124), 'eng': 'Gentian blue', 'rus': 'Генцианово-синий'},
