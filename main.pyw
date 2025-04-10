@@ -245,13 +245,8 @@ class Application(tk.Tk):
         # save color
         elif event.state == 131084 and event.keycode == 67:  # Ctrl+Alt+C
             hex_color = self.canvas.itemcget('z_33', 'fill')
-            color_txt = (f'{self._get_color_by_space(hex_color, 'hex')[1]}\n'
-                         f'{self._get_color_by_space(hex_color, 'rgb')[1]}\n'
-                         f'{self._get_color_by_space(hex_color, 'hsl')[1]}\n'
-                         f'{self._get_color_by_space(hex_color, 'hsv')[1]}\n'
-                         f'{self._get_color_by_space(hex_color, 'ral')[1]}')
             self.clipboard_clear()
-            self.clipboard_append(color_txt)
+            self.clipboard_append(self._get_color_by_space(hex_color, self.colorspace)[1])
             self.update()
         # recognize
         elif event.state == 12 and event.keycode == 82:  # Ctrl+R
@@ -373,10 +368,10 @@ class Application(tk.Tk):
         Args:
             event (tk.Event): Событие колеса мыши
         """
-        spaces = ['hex', 'rgb', 'hsl', 'hsv', 'ral']
+        spaces = ['hex', 'rgb', 'hsl', 'hsv', 'cmyk', 'ral']
         colorspace = spaces.index(self.colorspace)
         colorspace += 1 if event.delta > 0 else -1
-        self.colorspace = spaces[colorspace % 5]
+        self.colorspace = spaces[colorspace % 6]
 
     @staticmethod
     def _get_color_by_space(hex_color, space):
@@ -389,6 +384,7 @@ class Application(tk.Tk):
                              'rgb' - RGB (R, G, B)
                              'hsl' - HSL (H°, S%, L%)
                              'hsv' - HSV (H° S% V%)
+                             'cmyk' - CMYK (C, M, Y, K)
                              'ral' - RAL Classic
 
             Returns:
@@ -401,18 +397,29 @@ class Application(tk.Tk):
         match space:
             case 'hex':
                 return [hex_color.upper(),
-                        f'HEX: {hex_color}']
+                        hex_color]
             case 'rgb':
-                return [f'R:{red}, G:{green}, B:{blue}',
-                        f'RGB: rgb({red}, {green}, {blue})']
+                return [f'R:{red} G:{green} B:{blue}',
+                        f'rgb({red} {green} {blue})']
             case 'hsl':
                 hls = rgb_to_hls(red / 255, green / 255, blue / 255)
-                return [f'H:{hls[0] * 360:.0f} S:{hls[2]:.0%} L:{hls[1]:.0%}',
-                        f'HSL: hsl({hls[0] * 360:.0f}, {hls[2]:.0%}, {hls[1]:.0%})']
+                return [f'HSL: {hls[0] * 360:.0f} {hls[2]:.0%} {hls[1]:.0%}',
+                        f'hsl({hls[0] * 360:.0f}, {hls[2]:.0%}, {hls[1]:.0%})']
             case 'hsv':
                 h, s, v = rgb_to_hsv(red / 255, green / 255, blue / 255)
-                return [f'H:{h * 360:.0f}° S:{s:.0%} V:{v:.0%}',
-                        f'HSV: {h * 360:.0f}° {s:.0%} {v:.0%}']
+                return [f'HSV: {h * 360:.0f}° {s:.0%} {v:.0%}',
+                        f'Hue:{h * 360:.0f}°, Saturation:{s:.0%}, Value/Brightness:{v:.0%}']
+            case 'cmyk':
+                key = 1 - max(red / 255, green / 255, blue / 255)
+                if key == 1:
+                    return ['C:0 M:0 Y:0 K:0',
+                            'Cyan:0%, Magenta:0%, Yellow:0%, Key:100%']
+                cyan = int((1 - red / 255 - key) / (1 - key) * 100)
+                magenta = int((1 - green / 255 - key) / (1 - key) * 100)
+                yellow = int((1 - blue / 255 - key) / (1 - key) * 100)
+                key = int(key * 100)
+                return [f'C:{cyan} M:{magenta} Y:{yellow} K:{key}',
+                        f'Cyan:{cyan}%, Magenta:{magenta}%, Yellow:{yellow}%, Key:{key}%']
             case 'ral':
                 ral_colors = (
                 {'RAL': '1000', 'rgb': (205, 186, 136), 'eng': 'Green beige', 'rus': 'Зелено-бежевый'},
@@ -642,7 +649,7 @@ class Application(tk.Tk):
                     if distance < min_distance:
                         min_distance = distance
                         closest_color = color
-                return [f'RAL {closest_color["RAL"]}', f'RAL: {closest_color["RAL"]}']
+                return [f'RAL {closest_color["RAL"]}', f'RAL {closest_color["RAL"]}']
 
 
     def _set_color(self, color):
