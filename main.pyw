@@ -346,7 +346,12 @@ class Application(tk.Tk):
         luminance = hex_red * 0.2126 + hex_green * 0.7152 + hex_blue * 0.0722
         self.canvas.itemconfig(self.color_pick, text=self._get_color_by_space(self.cursor_color, self.colorspace)[0],
                                fill='lightgrey' if luminance < 140 else 'black')
-        self.canvas.itemconfig(self.color_pick_bg, fill=self.cursor_color, outline='black')
+        if self.colorspace != 'ral':
+            self.canvas.itemconfig(self.color_pick_bg, fill=self.cursor_color, outline='black')
+        else:
+            ral_color = self._get_color_by_space(self.cursor_color, 'ral')[2]
+            ral_fill = f'#{ral_color[0]:02x}{ral_color[1]:02x}{ral_color[2]:02x}'
+            self.canvas.itemconfig(self.color_pick_bg, fill=ral_fill, outline='black')
         height_pick = self.canvas.bbox(self.color_pick)[3] - self.canvas.bbox(self.color_pick)[1]
         width_pick = self.canvas.bbox(self.color_pick)[2] - self.canvas.bbox(self.color_pick)[0]
         self.canvas.moveto(self.color_pick, x - width_pick // 2 + 1, y - height_pick - 32 + 70)
@@ -380,12 +385,12 @@ class Application(tk.Tk):
             Args:
                 hex_color (str): Цвет в HEX-формате (#RRGGBB)
                 space (str): Целевое цветовое пространство:
-                             'hex' - HEX (#RRGGBB)
-                             'rgb' - RGB (R, G, B)
-                             'hsl' - HSL (H°, S%, L%)
-                             'hsv' - HSV (H° S% V%)
+                             'hex'  - HEX (#RRGGBB)
+                             'rgb'  - RGB (R, G, B)
+                             'hsl'  - HSL (H°, S%, L%)
+                             'hsv'  - HSV (H° S% V%)
                              'cmyk' - CMYK (C, M, Y, K)
-                             'ral' - RAL Classic
+                             'ral'  - RAL Classic
 
             Returns:
                 list: Цвет в указанном формате, отформатированный для вывода и сохранения
@@ -412,7 +417,7 @@ class Application(tk.Tk):
             case 'cmyk':
                 key = 1 - max(red / 255, green / 255, blue / 255)
                 if key == 1:
-                    return ['C:0 M:0 Y:0 K:0',
+                    return ['C:0 M:0 Y:0 K:100',
                             'Cyan:0%, Magenta:0%, Yellow:0%, Key:100%']
                 cyan = int((1 - red / 255 - key) / (1 - key) * 100)
                 magenta = int((1 - green / 255 - key) / (1 - key) * 100)
@@ -649,7 +654,7 @@ class Application(tk.Tk):
                     if distance < min_distance:
                         min_distance = distance
                         closest_color = color
-                return [f'RAL {closest_color["RAL"]}', f'RAL {closest_color["RAL"]}']
+                return [f'RAL {closest_color["RAL"]}', f'RAL {closest_color["RAL"]}', closest_color['rgb']]
 
 
     def _set_color(self, color):
