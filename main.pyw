@@ -388,7 +388,7 @@ class Application(tk.Tk):
                              'hex'  - HEX (#RRGGBB)
                              'rgb'  - RGB (R, G, B)
                              'hsl'  - HSL (H°, S%, L%)
-                             'hsv'  - HSV (H° S% V%)
+                             'hsv'  - HSV (H°, S%, V%)
                              'cmyk' - CMYK (C, M, Y, K)
                              'ral'  - RAL Classic
 
@@ -408,7 +408,7 @@ class Application(tk.Tk):
                         f'rgb({red} {green} {blue})']
             case 'hsl':
                 hls = rgb_to_hls(red / 255, green / 255, blue / 255)
-                return [f'HSL: {hls[0] * 360:.0f} {hls[2]:.0%} {hls[1]:.0%}',
+                return [f'HSL: {hls[0] * 360:.0f}° {hls[2]:.0%} {hls[1]:.0%}',
                         f'hsl({hls[0] * 360:.0f}, {hls[2]:.0%}, {hls[1]:.0%})']
             case 'hsv':
                 h, s, v = rgb_to_hsv(red / 255, green / 255, blue / 255)
