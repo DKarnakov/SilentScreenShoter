@@ -580,7 +580,7 @@ class Application(tk.Tk):
                 {'RAL': '7005', 'rgb': (107, 110, 107), 'eng': 'Mouse grey', 'rus': 'Мышино-серый'},
                 {'RAL': '7006', 'rgb': (118, 106, 94), 'eng': 'Beige grey', 'rus': 'Бежево-серый'},
                 {'RAL': '7008', 'rgb': (116, 95, 61), 'eng': 'Khaki grey', 'rus': 'Серое хаки'},
-                {'RAL': '7009', 'rgb': (93, 96, 88), 'eng': 'Green grey', 'rus': 'елено-серый'},
+                {'RAL': '7009', 'rgb': (93, 96, 88), 'eng': 'Green grey', 'rus': 'Зелено-серый'},
                 {'RAL': '7010', 'rgb': (88, 92, 86), 'eng': 'Tarpaulin grey', 'rus': 'Брезентово-серый'},
                 {'RAL': '7011', 'rgb': (82, 89, 93), 'eng': 'Iron grey', 'rus': 'Железно-серый'},
                 {'RAL': '7012', 'rgb': (87, 93, 94), 'eng': 'Basalt grey', 'rus': 'Базальтово-серый'},
@@ -654,7 +654,9 @@ class Application(tk.Tk):
                     if distance < min_distance:
                         min_distance = distance
                         closest_color = color
-                return [f'RAL {closest_color["RAL"]}', f'RAL {closest_color["RAL"]}', closest_color['rgb']]
+                return [f'RAL {closest_color["RAL"]}',
+                        f'RAL {closest_color["RAL"]} ({closest_color["rus"]})',
+                        closest_color['rgb']]
 
 
     def _set_color(self, color):
