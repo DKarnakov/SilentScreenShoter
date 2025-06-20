@@ -8,13 +8,15 @@ import time
 import tkinter as tk
 import webbrowser
 import win32clipboard
+import win32print
+import win32ui
 from colorsys import rgb_to_hsv, rgb_to_hls
 from functools import partial
 from io import BytesIO
 from math import sqrt, atan2, pi, sin, cos, dist
 from tkinter import ttk, filedialog, font
 from tkinter.scrolledtext import ScrolledText as sText
-from PIL import ImageGrab, ImageTk, ImageEnhance, ImageFilter, Image, ImageDraw
+from PIL import ImageGrab, ImageTk, ImageEnhance, ImageFilter, Image, ImageDraw, ImageWin
 from pynput import mouse
 from pyzbar.pyzbar import decode
 from shapely import LineString
@@ -251,6 +253,46 @@ class Application(tk.Tk):
         # recognize
         elif event.state == 12 and event.keycode == 82:  # Ctrl+R
             self._recognize()
+        # print
+        elif event.state == 12 and event.keycode == 80:  # Ctrl+P
+            printer_name = win32print.GetDefaultPrinter()
+            hdc = win32ui.CreateDC()
+            hdc.CreatePrinterDC(printer_name)
+            printer_info = {'PHYSICALWIDTH': hdc.GetDeviceCaps(110),
+                            'PHYSICALHEIGHT': hdc.GetDeviceCaps(111)}
+
+            try:
+                hdc.StartDoc(f'Снимок экрана {time.strftime('%d-%m-%Y %H%M%S')}')
+                hdc.StartPage()
+
+                self.canvas.itemconfigure('service', state='hidden')
+                self.canvas.update()
+                bbox = self.canvas.bbox(self.viewport)
+                image = ImageGrab.grab(bbox=bbox)
+                with BytesIO() as output:
+                    image.convert('RGB').save(output, 'BMP')
+
+                image_w = bbox[2]-bbox[0]
+                image_h = bbox[3]-bbox[1]
+                scale_x = printer_info['PHYSICALWIDTH'] / image_w
+                scale_y = printer_info['PHYSICALHEIGHT'] / image_h
+                if scale_x < scale_y:
+                    image_w = printer_info['PHYSICALWIDTH']
+                    image_h = int(image_h * scale_x)
+                else:
+                    image_w = int(image_w * scale_y)
+                    image_h = printer_info['PHYSICALHEIGHT']
+
+                dib = ImageWin.Dib(image)
+                dib.draw(hdc.GetHandleOutput(), (0, 0, image_w, image_h))
+
+                hdc.EndPage()
+                hdc.EndDoc()
+                self.canvas.itemconfigure('service', state='normal')
+                self.canvas.itemconfigure('precision', state='hidden')
+            except win32ui.error:
+                pass
+            hdc.DeleteDC()
 
     def _create_editor(self, event):
         """Создает область редактирования на холсте.
@@ -1965,7 +2007,7 @@ class Notepad(tk.Tk):
             if event.char == '"' and self._layout() in ['ru',]:
                 char_left = ord(self.text.get(f'{position}-1c'))
                 char_right = ord(self.text.get(f'{position}'))
-                if char_left in [10, 32, 9]:  # Enter, Space, Tab
+                if char_left in [10, 32, 9] or position == '1.0':  # Enter, Space, Tab, First letter
                     self.text.insert(position, chr(171))  # «
                     return 'break'
                 elif char_right in [10, 32, 9]:  # Enter, Space, Tab
