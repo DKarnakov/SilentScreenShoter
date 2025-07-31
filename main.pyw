@@ -19,8 +19,7 @@ from tkinter.scrolledtext import ScrolledText as sText
 from PIL import ImageGrab, ImageTk, ImageEnhance, ImageFilter, Image, ImageDraw, ImageWin
 from pynput import mouse
 from pyzbar.pyzbar import decode
-from shapely import LineString
-from shapely.geometry import Polygon
+from shapely.geometry import LineString, Polygon
 
 
 class Application(tk.Tk):
@@ -129,6 +128,7 @@ class Application(tk.Tk):
         self.font_size = 18
         self.ruler_scale = 1.0
         self.callback_button = None
+        self.lock_viewport = False
 
         self.panel = ttk.Frame(self.canvas)
         self.panel_hint = self.Hint(self.panel, ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', '', 'Ctrl+R', 'Ctrl+C'])
@@ -181,7 +181,8 @@ class Application(tk.Tk):
             cursor (str): Вид курсора при наведении
         """
         self.corner[position] = self.canvas.create_rectangle(x - 4, y - 4, x + 4, y + 4, width=2,
-                                                             outline='lightgrey', fill='black', tags='service')
+                                                             outline='lightgrey', fill='black',
+                                                             tags=['service', 'corner'])
         self.canvas.tag_bind(self.corner[position], '<Enter>', lambda e: self.canvas.config(cursor=cursor))
         self.canvas.tag_bind(self.corner[position], '<Leave>', lambda e: self.canvas.config(cursor=''))
         self.canvas.tag_bind(self.corner[position], '<B1-Motion>', lambda e: self._change_viewport(position, e))
@@ -290,9 +291,23 @@ class Application(tk.Tk):
                 hdc.EndDoc()
                 self.canvas.itemconfigure('service', state='normal')
                 self.canvas.itemconfigure('precision', state='hidden')
+                if self.lock_viewport:
+                    self.canvas.itemconfigure('corner', state='hidden')
             except win32ui.error:
                 pass
             hdc.DeleteDC()
+
+    def _viewport_lock(self):
+        """Блокировка изменения размеров окна редактора"""
+        self.lock_viewport = not self.lock_viewport
+        self.canvas.itemconfigure('corner', state='hidden' if self.lock_viewport else 'normal')
+        self.canvas.tag_raise('corner')
+        if self.text_edit:
+            if self.lock_viewport:
+                self.canvas.itemconfigure(self.text, width=self.canvas.bbox(self.viewport)[2] - self.coords[0] - 3)
+            else:
+                self.canvas.itemconfigure(self.text, width=self.winfo_width() - self.coords[0] - 3)
+            self._redraw_text()
 
     def _create_editor(self, event):
         """Создает область редактирования на холсте.
@@ -331,18 +346,22 @@ class Application(tk.Tk):
         self.viewport_size_bg = self.canvas.create_rectangle(self.canvas.bbox(self.viewport_size),
                                                              fill='grey', outline='grey',
                                                              tags=['service', 'precision'])
+        self.canvas.tag_bind(self.viewport_size, '<Enter>', lambda e: self.canvas.config(cursor='hand2'))
+        self.canvas.tag_bind(self.viewport_size, '<Leave>', lambda e: self.canvas.config(cursor=''))
+        self.canvas.tag_bind(self.viewport_size, '<ButtonPress-1>', lambda e: self._viewport_lock())
+
         self.canvas.tag_lower(self.viewport_size_bg, self.viewport_size)
 
         for row in range(7):
             for col in range(7):
-                self.canvas.create_rectangle(0, 0, 10, 10, tags=['service', 'precision', f'z_{row}{col}'])
+                self.canvas.create_rectangle(0, 0, 10, 10, tags=['service', 'precision', f'z_{row}{col}', 'zoom'])
         self.canvas.itemconfig('z_33', width=3)
 
         self.color_pick = self.canvas.create_text(0, 0, anchor='sw', text='#000000',
                                                   font='Helvetica 10 bold',
-                                                  tags=['service', 'precision'])
+                                                  tags=['service', 'precision', 'zoom'])
         self.color_pick_bg = self.canvas.create_rectangle(self.canvas.bbox(self.viewport_size),
-                                                          tags=['service', 'precision'])
+                                                          tags=['service', 'precision', 'zoom'])
         self.canvas.tag_lower(self.color_pick_bg, self.color_pick)
 
         self.canvas.itemconfig('precision', state='hidden')
@@ -351,7 +370,7 @@ class Application(tk.Tk):
         self.bind('<KeyRelease-Alt_L>', lambda e: self._stop_precision())
         self.bind('<KeyPress-Alt_R>', lambda e: self._precision())
         self.bind('<KeyRelease-Alt_R>', lambda e: self._stop_precision())
-        self.bind('<Alt-Button-1>', lambda e: self._set_color(color='0'))
+        self.canvas.tag_bind('editor', '<Alt-Button-1>', lambda e: [self._set_color(color='0'), self._new_item(e)])
         self.bind('<Control-KeyPress>', lambda e: self._control(e))
 
         self.canvas.tag_bind('editor', '<ButtonPress-2>', lambda e: self._new_item(e))
@@ -362,7 +381,8 @@ class Application(tk.Tk):
         """Активирует режим прецизионных измерений (Alt). Показывает размеры области и цвет пикселя."""
         x1, y1, x2, y2 = self.canvas.bbox(self.viewport)
         self.canvas.itemconfig('precision', state='normal')
-        self.canvas.itemconfig(self.viewport_size, text=f'{x2 - x1}×{y2 - y1}')
+        size = f'{x2 - x1}×{y2 - y1}'
+        self.canvas.itemconfig(self.viewport_size, text=f'>{size}<' if self.lock_viewport else size)
         height = self.canvas.bbox(self.viewport_size)[3] - self.canvas.bbox(self.viewport_size)[1]
         self.canvas.moveto(self.viewport_size, x1 - 5, y1 - height - 7)
         self.canvas.coords(self.viewport_size_bg, self.canvas.bbox(self.viewport_size))
@@ -372,35 +392,39 @@ class Application(tk.Tk):
         x = min(max(35, xp), self.winfo_width() - 35)
         y = min(yp, self.winfo_height() - 110)
 
-        for row in range(7):
-            for col in range(7):
-                try:
-                    r, g, b = self.image.getpixel((xp - 3 + col, yp - 3 + row))
-                except IndexError:
-                    r, g, b = self.image.getpixel((xp, yp))
-                self.canvas.itemconfig(f'z_{row}{col}', fill=f'#{r:02x}{g:02x}{b:02x}')
-                self.canvas.moveto(f'z_{row}{col}', x - 35 + col * 10, y - 30 + row * 10 + 70)
+        if x1 <= xp <= x2 and y1 <= yp <= y2:
+            self.canvas.itemconfigure('zoom', state='normal')
+            for row in range(7):
+                for col in range(7):
+                    try:
+                        r, g, b = self.image.getpixel((xp - 3 + col, yp - 3 + row))
+                    except IndexError:
+                        r, g, b = self.image.getpixel((xp, yp))
+                    self.canvas.itemconfig(f'z_{row}{col}', fill=f'#{r:02x}{g:02x}{b:02x}')
+                    self.canvas.moveto(f'z_{row}{col}', x - 35 + col * 10, y - 30 + row * 10 + 70)
 
-        self.cursor_color = self.canvas.itemcget('z_33', 'fill')
-        hex_red = int(self.cursor_color[1:3], base=16)
-        hex_green = int(self.cursor_color[3:5], base=16)
-        hex_blue = int(self.cursor_color[5:7], base=16)
-        luminance = hex_red * 0.2126 + hex_green * 0.7152 + hex_blue * 0.0722
-        self.canvas.itemconfig(self.color_pick, text=self._get_color_by_space(self.cursor_color, self.colorspace)[0],
-                               fill='lightgrey' if luminance < 140 else 'black')
-        if self.colorspace != 'ral':
-            self.canvas.itemconfig(self.color_pick_bg, fill=self.cursor_color, outline='black')
+            self.cursor_color = self.canvas.itemcget('z_33', 'fill')
+            hex_red = int(self.cursor_color[1:3], base=16)
+            hex_green = int(self.cursor_color[3:5], base=16)
+            hex_blue = int(self.cursor_color[5:7], base=16)
+            luminance = hex_red * 0.2126 + hex_green * 0.7152 + hex_blue * 0.0722
+            self.canvas.itemconfig(self.color_pick, text=self._get_color_by_space(self.cursor_color, self.colorspace)[0],
+                                   fill='lightgrey' if luminance < 140 else 'black')
+            if self.colorspace != 'ral':
+                self.canvas.itemconfig(self.color_pick_bg, fill=self.cursor_color, outline='black')
+            else:
+                ral_color = self._get_color_by_space(self.cursor_color, 'ral')[2]
+                ral_fill = f'#{ral_color[0]:02x}{ral_color[1]:02x}{ral_color[2]:02x}'
+                self.canvas.itemconfig(self.color_pick_bg, fill=ral_fill, outline='black')
+            height_pick = self.canvas.bbox(self.color_pick)[3] - self.canvas.bbox(self.color_pick)[1]
+            width_pick = self.canvas.bbox(self.color_pick)[2] - self.canvas.bbox(self.color_pick)[0]
+            self.canvas.moveto(self.color_pick, x - width_pick // 2 + 1, y - height_pick - 32 + 70)
+            self.canvas.coords(self.color_pick_bg, (min(x - 34, x - width_pick // 2), y - height_pick - 32 + 70,
+                                                    max(x + 36, x + width_pick // 2 + 2), y - 32 + 70))
+            self.canvas.tag_raise('precision')
+            self.canvas.tag_raise('z_33')
         else:
-            ral_color = self._get_color_by_space(self.cursor_color, 'ral')[2]
-            ral_fill = f'#{ral_color[0]:02x}{ral_color[1]:02x}{ral_color[2]:02x}'
-            self.canvas.itemconfig(self.color_pick_bg, fill=ral_fill, outline='black')
-        height_pick = self.canvas.bbox(self.color_pick)[3] - self.canvas.bbox(self.color_pick)[1]
-        width_pick = self.canvas.bbox(self.color_pick)[2] - self.canvas.bbox(self.color_pick)[0]
-        self.canvas.moveto(self.color_pick, x - width_pick // 2 + 1, y - height_pick - 32 + 70)
-        self.canvas.coords(self.color_pick_bg, (min(x - 34, x - width_pick // 2), y - height_pick - 32 + 70,
-                                                max(x + 36, x + width_pick // 2 + 2), y - 32 + 70))
-        self.canvas.tag_raise('precision')
-        self.canvas.tag_raise('z_33')
+            self.canvas.itemconfigure('zoom', state='hidden')
 
         self.bind('<MouseWheel>', lambda e: self._change_colorspace(e))
 
@@ -776,22 +800,32 @@ class Application(tk.Tk):
 
     def _check_viewport_borders(self, x, y):
         """Расширяет область редактирования при выходе за границы.
+        Если стоит запрет на изменения границ, то возвращается точка на границе редактора
+        Если границы можно менять, то меняет границы редактора, возвращает те же значения, что получила функция
 
         Args:
             x, y (int): Координаты проверяемой точки
         """
-        x1 = x if x < self.canvas.bbox(self.viewport)[0] else self.canvas.bbox(self.viewport)[0]
-        x2 = x if x > self.canvas.bbox(self.viewport)[2] else self.canvas.bbox(self.viewport)[2]
-        y1 = y if y < self.canvas.bbox(self.viewport)[1] else self.canvas.bbox(self.viewport)[1]
-        y2 = y if y > self.canvas.bbox(self.viewport)[3] else self.canvas.bbox(self.viewport)[3]
 
-        if self.canvas.bbox(self.viewport) != [x1, y1, x2, y2]:
-            self.screenshot_area = self.image.crop((x1, y1, x2, y2))
-            self.screenshot_area_tk = ImageTk.PhotoImage(self.screenshot_area)
-            self.canvas.moveto(self.viewport, x1, y1)
-            self.canvas.itemconfig(self.viewport, image=self.screenshot_area_tk, anchor='nw')
-            self._draw_borders(x1, y1, x2, y2)
-            self.x1, self.y1, self.x2, self.y2 = [x1, y1, x2, y2]
+        if self.lock_viewport:
+            x = min(self.canvas.bbox(self.viewport)[2], max(x, self.canvas.bbox(self.viewport)[0]))
+            y = min(self.canvas.bbox(self.viewport)[3], max(y, self.canvas.bbox(self.viewport)[1]))
+
+        else:
+            x1 = x if x < self.canvas.bbox(self.viewport)[0] else self.canvas.bbox(self.viewport)[0]
+            x2 = x if x > self.canvas.bbox(self.viewport)[2] else self.canvas.bbox(self.viewport)[2]
+            y1 = y if y < self.canvas.bbox(self.viewport)[1] else self.canvas.bbox(self.viewport)[1]
+            y2 = y if y > self.canvas.bbox(self.viewport)[3] else self.canvas.bbox(self.viewport)[3]
+
+            if self.canvas.bbox(self.viewport) != [x1, y1, x2, y2]:
+                self.screenshot_area = self.image.crop((x1, y1, x2, y2))
+                self.screenshot_area_tk = ImageTk.PhotoImage(self.screenshot_area)
+                self.canvas.moveto(self.viewport, x1, y1)
+                self.canvas.itemconfig(self.viewport, image=self.screenshot_area_tk, anchor='nw')
+                self._draw_borders(x1, y1, x2, y2)
+                self.x1, self.y1, self.x2, self.y2 = [x1, y1, x2, y2]
+
+        return [x, y]
 
     def _start_editing(self):
         """Активирует панель инструментов после завершения выделения области."""
@@ -802,6 +836,9 @@ class Application(tk.Tk):
         self.canvas.unbind('<ButtonPress-1>')
         self.canvas.unbind('<ButtonRelease-1>')
         self.canvas.unbind('<Button-3>')
+
+        self.bind('<Motion>', lambda e: self._cursor())
+        self.bind('<ButtonPress-1>', lambda e: self._viewport_start_move())
 
         self.canvas.create_window(self.canvas.winfo_width() // 2, 10, window=self.panel, anchor='n', tags='service')
         self.MakeDraggable(self.panel, on_start=self.panel_hint.hide)
@@ -820,6 +857,65 @@ class Application(tk.Tk):
         self.done_button.grid(padx=3, pady=3, column=9, row=1)
 
         self._set_arrow()
+
+    def _cursor(self):
+        """Установка типа курсора "fleur" для зоны, где можно менять положение редактора"""
+        x, y = self.winfo_pointerxy()
+        xv1, yv1, xv2, yv2 = self._offset_bbox(self.canvas.bbox(self.viewport), 5)
+        xp1, yp1 = self.panel.winfo_x(), self.panel.winfo_y()
+        xp2, yp2 = xp1 + self.panel.winfo_width(), yp1 + self.panel.winfo_height()
+        if (xv1 <= x <= xv2 and yv1 <= y <= yv2) or (xp1 <= x <= xp2 and yp1 <= y <= yp2):
+            self.config(cursor='')
+        else:
+            self.config(cursor='fleur')
+
+    def _viewport_start_move(self):
+        """Обработчик начала передвижения окна редактора"""
+        x, y = self.winfo_pointerxy()
+        xv1, yv1, xv2, yv2 = self._offset_bbox(self.canvas.bbox(self.viewport), 5)
+        xp1, yp1 = self.panel.winfo_x(), self.panel.winfo_y()
+        xp2, yp2 = xp1 + self.panel.winfo_width(), yp1 + self.panel.winfo_height()
+        if (xv1 <= x <= xv2 and yv1 <= y <= yv2) or (xp1 <= x <= xp2 and yp1 <= y <= yp2):
+            return
+        else:
+            self.drag_start_coords = [x, y]
+            self.bind('<B1-Motion>', lambda e: self._viewport_move(e))
+            self.bind('<ButtonRelease-1>', lambda e: self._viewport_stop_move(e))
+
+    def _viewport_move(self, event):
+        """Обработчик передвижения окна редактора
+        - контроль за зонами границ экрана и границ уже нарисованных элементов"""
+        dx = event.x - self.drag_start_coords[0]
+        dy = event.y - self.drag_start_coords[1]
+
+        width = self.x2 - self.x1
+        height = self.y2 - self.y1
+
+        items = self.canvas.bbox('item')
+
+        right = min(items[0], self.winfo_width() - width) if items else self.winfo_width() - width
+        left = max(0, items[2] - width) if items else 0
+        top = max(0, items[3] - height) if items else 0
+        bottom = min(items[1], self.winfo_height() - height) if items else self.winfo_height() - height
+
+        x1 = max(left, min(self.x1 + dx, right))
+        y1 = max(top, min(self.y1 + dy, bottom))
+        x2 = x1 + width
+        y2 = y1 + height
+
+        self.screenshot_area = self.image.crop((x1, y1, x2, y2))
+        self.screenshot_area_tk = ImageTk.PhotoImage(self.screenshot_area)
+        self.canvas.itemconfig(self.viewport, image=self.screenshot_area_tk, anchor='nw')
+        self.canvas.moveto(self.viewport, x1, y1)
+        self._draw_borders(x1, y1, x2, y2)
+
+        self.drag_start_coords = [event.x, event.y]
+        self.x1, self.y1, self.x2, self.y2 = x1, y1, x2, y2
+
+    def _viewport_stop_move(self, event):
+        """Обработчик окончания перетаскивания окна редактора"""
+        self.unbind('<B1-Motion>')
+        self.unbind('<ButtonRelease-1>')
 
     def _set_selection(self, button):
         """Активирует состояние выбранной кнопки на панели инструментов.
@@ -866,8 +962,7 @@ class Application(tk.Tk):
             self.canvas.tag_bind(self.arrow, '<ButtonPress-3>', partial(self.canvas.delete, self.arrow))
             self.canvas.bind('<MouseWheel>', lambda e: self._arrow_change(e))
         else:
-            self.coords = self.coords[:2] + [event.x, event.y]
-            self._check_viewport_borders(event.x, event.y)
+            self.coords = self.coords[:2] + self._check_viewport_borders(event.x, event.y)
             self.canvas.coords(self.arrow, self.coords)
 
     def _arrow_change(self, event):
@@ -918,9 +1013,9 @@ class Application(tk.Tk):
             x2, y2 = event.x, event.y
             distance = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
             if distance > 3:
-                self.coords += [event.x, event.y]
+                self.coords += self._check_viewport_borders(x2, y2)
                 self.canvas.coords(self.pen, self.coords)
-            self._check_viewport_borders(x2, y2)
+
 
     def _pen_width_change(self, event):
         """Изменяет толщину карандаша колесом мыши.
@@ -1066,8 +1161,7 @@ class Application(tk.Tk):
                     self.callback_button = button
                     ttk.Button.state(button, ['!pressed'])
         elif len(self.coords) == 4:
-            self.coords = self.coords[:2] + [event.x, event.y]
-            self._check_viewport_borders(event.x, event.y)
+            self.coords = self.coords[:2] + self._check_viewport_borders(event.x, event.y)
             self.canvas.coords(self.ruler, self.coords)
             length = dist(self.coords[2:], self.coords[:2])
             if self.canvas.itemcget(self.ruler_size_bg, 'fill') == 'blue':
@@ -1079,8 +1173,7 @@ class Application(tk.Tk):
                 self.ruler_txt = ''
             self._draw_ruler_size(int(length * self.ruler_scale), 'grey50', 'white')
         else:
-            self.coords = self.coords[:-2] + [event.x, event.y]
-            self._check_viewport_borders(event.x, event.y)
+            self.coords = self.coords[:-2] + self._check_viewport_borders(event.x, event.y)
             self.canvas.coords(self.ruler_area, self.coords)
             self._draw_ruler_area()
 
@@ -1232,8 +1325,7 @@ class Application(tk.Tk):
             self.canvas.tag_bind(self.line, '<ButtonPress-3>', partial(self.canvas.delete, self.line))
             self.canvas.bind('<MouseWheel>', lambda e: self._line_change(e))
         else:
-            self.coords = self.coords[:2] + [event.x, event.y]
-            self._check_viewport_borders(event.x, event.y)
+            self.coords = self.coords[:2] + self._check_viewport_borders(event.x, event.y)
             self.canvas.coords(self.line, self.coords)
 
     def _line_angle_move(self, angle, event):
@@ -1256,8 +1348,7 @@ class Application(tk.Tk):
             length = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
             x2 = int(x1 + length * sin(alpha))
             y2 = int(y1 + length * cos(alpha))
-            self._check_viewport_borders(x2, y2)
-            self.coords = [x1, y1, x2, y2]
+            self.coords = [x1, y1, *self._check_viewport_borders(x2, y2)]
             self.canvas.coords(self.line, self.coords)
 
     @staticmethod
@@ -1310,8 +1401,7 @@ class Application(tk.Tk):
             self.canvas.tag_bind(self.rect, '<ButtonPress-3>', partial(self.canvas.delete, self.rect))
             self.canvas.bind('<MouseWheel>', lambda e: self._rect_corner_change(e))
         else:
-            self.coords = self.coords[:2] + [event.x, event.y]
-            self._check_viewport_borders(event.x, event.y)
+            self.coords = self.coords[:2] + self._check_viewport_borders(event.x, event.y)
             self.canvas.coords(self.rect, self._round_rectangle(self.coords, self.rect_corner))
 
     def _rect_corner_change(self, event):
@@ -1372,17 +1462,19 @@ class Application(tk.Tk):
         self.txt = ''
         height = font.Font(font=f'Helvetica {self.font_size} bold').metrics('linespace') // 2
         self.coords[1] -= height if self.coords[2:] == [0, 0] else 0
-        x = min(self.coords[0], event.x)
-        y = min(self.coords[1], event.y)
+        x, y  = self._check_viewport_borders(min(self.coords[0], event.x), min(self.coords[1], event.y))
         self.text = self.canvas.create_text(x, y, anchor='nw',
                                             text=self.txt, font=f'Helvetica {self.font_size} bold',
                                             fill=self.color_panel['background'],
-                                            width=self.winfo_width() - x,
                                             tags=['editor', f'txt{self.txt_tag}', 'item'])
         self.text_cursor = self.canvas.create_text(x, y, anchor='nw',
                                                    text='|', font=f'Helvetica {self.font_size} bold',
                                                    fill='grey50', tags=[f'txt{self.txt_tag}', 'service'])
         self.coords = [x, y, max(self.coords[0], self.coords[2]), max(self.coords[1], self.coords[3])]
+        if self.lock_viewport:
+            self.canvas.itemconfigure(self.text, width=self.canvas.bbox(self.viewport)[2] - self.coords[0] - 3)
+        else:
+            self.canvas.itemconfigure(self.text, width=self.winfo_width() - self.coords[0] - 3)
         self.canvas.tag_bind(f'txt{self.txt_tag}', '<ButtonPress-3>',
                              partial(self.canvas.delete, f'txt{self.txt_tag}'))
         self.text_edit = True
@@ -1395,8 +1487,7 @@ class Application(tk.Tk):
             event (tk.Event): Событие перемещения мыши
         """
         x1, y1 = self.coords[:2]
-        x2, y2 = event.x, event.y
-        self._check_viewport_borders(x2, y2)
+        x2, y2 = self._check_viewport_borders(event.x, event.y)
 
         x2, x1 = (x1, x2) if x2 < x1 else (x2, x1)
         y2, y1 = (y1, y2) if y2 < y1 else (y2, y1)
@@ -1449,16 +1540,21 @@ class Application(tk.Tk):
         """
         bounds = self.canvas.bbox(self.text)
         x1, y1, x2, y2 = (bounds[0], bounds[1], max(self.coords[2], bounds[2]), max(self.coords[3], bounds[3]))
-        if direction == 'Up' and y1 - step > 0:
+        if self.lock_viewport:
+            x_min, y_min, x_max, y_max = self.canvas.bbox(self.viewport)
+        else:
+            x_min, x_max = 0, self.winfo_width()
+            y_min, y_max = 0, self.winfo_height()
+        if direction == 'Up' and y1 - step > y_min:
             y1 -= step
             self.coords[3] -= step
-        elif direction == 'Down' and y2 + step < self.winfo_height():
+        elif direction == 'Down' and y2 + step < y_max:
             y1 += step
             self.coords[3] += step
-        elif direction == 'Left' and x1 - step > 0:
+        elif direction == 'Left' and x1 - step > x_min:
             x1 -= step
             self.coords[2] -= step
-        elif direction == 'Right' and x2 + step < self.winfo_width():
+        elif direction == 'Right' and x2 + step < x_max:
             x1 += step
             self.coords[2] += step
 
@@ -1469,16 +1565,21 @@ class Application(tk.Tk):
 
     def _update_cursor_position(self):
         """Обновляет позицию текстового курсора согласно текущему тексту."""
-        lines = len(self.txt.split('\n')) - 1
         max_width = int(self.canvas.itemcget(self.text, 'width'))
-        for line in self.txt.split('\n'):
-            add_line = font.Font(font=f'Helvetica {self.font_size} bold').measure(line) // max_width
-            lines += add_line
-        text_before_cursor = self.txt.split('\n')[-1]
-        line_width = font.Font(font=f'Helvetica {self.font_size} bold').measure(text_before_cursor)
+        line, lines = '', []
+
+        for char in self.txt:
+            line += char
+            if font.Font(font=f'Helvetica {self.font_size} bold').measure(line) > max_width or char == '\n':
+                lines.append(line[:-1])
+                line = char if char != '\n' else ''
+        lines.append(line)
+
+        line_width = font.Font(font=f'Helvetica {self.font_size} bold').measure(lines[-1])
         line_height = font.Font(font=f'Helvetica {self.font_size} bold').metrics('linespace')
+
         x = self.coords[0] + line_width
-        y = self.coords[1] + line_height * lines
+        y = self.coords[1] + line_height * (len(lines)-1)
         self.canvas.coords(self.text_cursor, x, y)
         self.canvas.itemconfig(self.text_cursor, font=f'Helvetica {self.font_size} bold')
 
@@ -1494,6 +1595,8 @@ class Application(tk.Tk):
 
     def _redraw_text(self):
         """Перерисовывает текстовый блок при изменениях."""
+        if not self.text:
+            return
         bounds = self.canvas.bbox(self.text)
         bounds = (bounds[0], bounds[1], max(self.coords[2], bounds[2]), max(self.coords[3], bounds[3]))
         self._check_viewport_borders(bounds[0] - 3, bounds[1] - 3)
@@ -1519,8 +1622,25 @@ class Application(tk.Tk):
             self._move_txt(event.keysym)
         elif event.keysym == 'Return':
             self.txt += '\n'
+        elif event.keysym == 'Tab':
+            pass
         else:
             self.txt = self.txt + event.char
+
+        if self.lock_viewport:
+            line, lines = '', []
+            max_width = int(self.canvas.itemcget(self.text, 'width'))
+
+            for char in self.txt:
+                line += char
+                if font.Font(font=f'Helvetica {self.font_size} bold').measure(line) > max_width or char == '\n':
+                    lines.append(line[:-1])
+                    line = char if char != '\n' else ''
+            lines.append(line)
+            line_height = font.Font(font=f'Helvetica {self.font_size} bold').metrics('linespace')
+
+            if self.y2 < self.coords[1] + line_height * len(lines) + 3:
+                self.txt = self.txt[:-1]
 
         self.canvas.itemconfig(self.text, text=self.txt)
         self._redraw_text()
@@ -1600,8 +1720,7 @@ class Application(tk.Tk):
             event (tk.Event): Событие перемещения мыши
         """
         x1, y1 = self.coords
-        x2, y2 = event.x, event.y
-        self._check_viewport_borders(x2, y2)
+        x2, y2 = self._check_viewport_borders(event.x, event.y)
 
         anchor = 's' if y2 < y1 else 'n'
         anchor += 'e' if x2 < x1 else 'w'
@@ -1672,8 +1791,7 @@ class Application(tk.Tk):
             event (tk.Event): Событие перемещения мыши
         """
         x1, y1, *_ = self.canvas.coords(self.number_arrow)
-        x2, y2 = event.x, event.y
-        self._check_viewport_borders(x2, y2)
+        x2, y2 = self._check_viewport_borders(event.x, event.y)
 
         length = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
         self.canvas.itemconfig(self.number_arrow, arrowshape=(length, length, 20), fill=self.color_panel['background'])
