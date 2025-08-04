@@ -173,13 +173,13 @@ class Application(tk.Tk):
         self.background = ImageTk.PhotoImage(background)
         self.canvas.create_image(0, 0, anchor='nw', image=self.background)
 
-        self.after(1000, self.focus_force)
-
         self.windows = self._get_active_windows_in_z_order()
         self.w_border = self.canvas.create_rectangle(0, 0, self.winfo_width(), self.winfo_height(),
                                                      width=2, outline='lime', tags='w_border')
         self.canvas.itemconfigure(self.w_border, state='hidden')
         self._draw_editor()
+
+        self.after(1000, self.focus_force)
 
     def _get_active_windows_in_z_order(self):
         """Получение списка всех открытых окон в порядке от самого верхнего к нижнему"""
