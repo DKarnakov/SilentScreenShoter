@@ -10,6 +10,8 @@ import webbrowser
 import win32clipboard
 import win32print
 import win32ui
+import win32gui
+import win32con
 from colorsys import rgb_to_hsv, rgb_to_hls
 from functools import partial
 from io import BytesIO
@@ -100,13 +102,15 @@ class Application(tk.Tk):
         self.attributes('-fullscreen', True)
         self.attributes('-topmost', True)
 
-        self.canvas = tk.Canvas(self, cursor='cross', highlightthickness=0)
+        self.canvas = tk.Canvas(self, highlightthickness=0)
         self.canvas.pack(side='top', fill='both', expand=True)
 
-        self.canvas.bind('<ButtonPress-1>', lambda e: self._create_editor(e))
-        self.canvas.bind('<B1-Motion>', lambda e: self._set_viewport(e))
-        self.canvas.bind('<ButtonRelease-1>', lambda e: self._start_editing())
         self.canvas.bind('<Button-3>', lambda e: [setattr(self, 'false_start', True), self.destroy()])
+
+        self.bind('<KeyPress-Alt_L>', lambda e: self._choose_window(e))
+        self.bind('<KeyRelease-Alt_L>', lambda e: self. _draw_editor())
+        self.bind('<KeyPress-Alt_R>', lambda e: self.config(cursor='dotbox'))
+        self.bind('<KeyRelease-Alt_R>', lambda e: self.config(cursor='cross'))
 
         self.x1 = self.y1 = None
         self.x2 = self.y2 = None
@@ -169,7 +173,168 @@ class Application(tk.Tk):
         self.background = ImageTk.PhotoImage(background)
         self.canvas.create_image(0, 0, anchor='nw', image=self.background)
 
-        self.focus_set()
+        self.after(1000, self.focus_force)
+
+        self.windows = self._get_active_windows_in_z_order()
+        self.w_border = self.canvas.create_rectangle(0, 0, self.winfo_width(), self.winfo_height(),
+                                                     width=2, outline='lime', tags='w_border')
+        self.canvas.itemconfigure(self.w_border, state='hidden')
+        self._draw_editor()
+
+    def _get_active_windows_in_z_order(self):
+        """Получение списка всех открытых окон в порядке от самого верхнего к нижнему"""
+        windows = []
+
+        # Получаем самое верхнее окно
+        hwnd = win32gui.GetTopWindow(0)
+
+        while hwnd:
+            # Пропускаем собственное окно
+            self_hwnd = int(self.frame(), 16)
+            if hwnd == self_hwnd:
+                hwnd = win32gui.GetWindow(hwnd, win32con.GW_HWNDNEXT)
+                continue
+
+            # Проверяем видимость и наличие заголовка
+            if not win32gui.IsWindowVisible(hwnd):
+                hwnd = win32gui.GetWindow(hwnd, win32con.GW_HWNDNEXT)
+                continue
+
+            title = win32gui.GetWindowText(hwnd)
+            if not title:
+                hwnd = win32gui.GetWindow(hwnd, win32con.GW_HWNDNEXT)
+                continue
+
+            # Пропускаем свернутые окна
+            if win32gui.IsIconic(hwnd):
+                hwnd = win32gui.GetWindow(hwnd, win32con.GW_HWNDNEXT)
+                continue
+
+            # Фильтрация по классу окна
+            class_name = win32gui.GetClassName(hwnd)
+            excluded_classes = [
+                'Progman', 'Shell_TrayWnd', 'WorkerW',
+                'Windows.UI.Core.CoreWindow', 'Button',
+                'ImmersiveLauncher', 'SysListView32',
+                'EdgeUiInputWndClass', 'Shell_SecondaryTrayWnd'
+                ]
+            if class_name in excluded_classes:
+                hwnd = win32gui.GetWindow(hwnd, win32con.GW_HWNDNEXT)
+                continue
+
+            # Проверка стилей окна
+            style = win32gui.GetWindowLong(hwnd, win32con.GWL_STYLE)
+            ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+
+            if not (style & win32con.WS_CAPTION):
+                hwnd = win32gui.GetWindow(hwnd, win32con.GW_HWNDNEXT)
+                continue
+
+            if (ex_style & win32con.WS_EX_TOOLWINDOW or
+                    ex_style & win32con.WS_EX_NOACTIVATE):
+                hwnd = win32gui.GetWindow(hwnd, win32con.GW_HWNDNEXT)
+                continue
+
+            if win32gui.GetWindow(hwnd, win32con.GW_OWNER) != 0:
+                hwnd = win32gui.GetWindow(hwnd, win32con.GW_HWNDNEXT)
+                continue
+
+            # Получаем координаты окна (с учетом DPI)
+            try:
+                # Получаем DPI контекста для корректного масштабирования
+                user32 = ctypes.windll.user32
+                dpi = user32.GetDpiForWindow(hwnd)
+                scale = dpi / 96.0
+
+                # Получаем физические координаты
+                rect = ctypes.wintypes.RECT()
+                hr = ctypes.windll.dwmapi.DwmGetWindowAttribute(hwnd, 9, ctypes.byref(rect), ctypes.sizeof(rect))
+                if hr == 0:
+                    left, top, right, bottom = rect.left, rect.top, rect.right, rect.bottom
+                else:
+                    left, top, right, bottom = win32gui.GetWindowRect(hwnd)
+
+                # Конвертируем в логические пиксели
+                left = int(left / scale)
+                top = int(top / scale)
+                right = int(right / scale)
+                bottom = int(bottom / scale)
+
+                rect = (left, top, right, bottom)
+            except OSError:
+                # Если возникла ошибка, возвращаем обычные координаты
+                rect = win32gui.GetWindowRect(hwnd)
+
+            windows.append({
+                'hwnd': hwnd,
+                'title': title,
+                'rect': rect,
+                'z_order': len(windows) + 1
+            })
+
+            # Переходим к следующему окну в z-порядке
+            hwnd = win32gui.GetWindow(hwnd, win32con.GW_HWNDNEXT)
+
+        return windows
+
+    def _choose_window(self, event):
+        """Переключение в режим выбора окон для скриншота"""
+        self.config(cursor='dotbox')
+        self.canvas.itemconfigure(self.w_border, state='normal')
+
+        self.canvas.unbind('<B1-Motion>')
+        self.canvas.unbind('<ButtonRelease-1>')
+        self.canvas.bind('<Motion>', lambda e: self._select_window(e))
+        self.canvas.bind('<ButtonPress-1>', lambda e: self._set_editor(e))
+
+    def _draw_editor(self):
+        """Переключение в режим рисования окна редактора"""
+        self.config(cursor='cross')
+        self.canvas.itemconfigure(self.w_border, state='hidden')
+
+        self.canvas.unbind('<Motion>')
+        self.canvas.bind('<ButtonPress-1>', lambda e: self._create_editor(e))
+        self.canvas.bind('<B1-Motion>', lambda e: self._set_viewport(e))
+        self.canvas.bind('<ButtonRelease-1>', lambda e: self._start_editing())
+
+    def _select_window(self, event):
+        """Выбор окна для скриншота"""
+        selected_windows = []
+        for window in self.windows:
+            if window['rect'][0] <= event.x <= window['rect'][2] and \
+               window['rect'][1] <= event.y <= window['rect'][3]:
+                selected_windows.append(window)
+        if selected_windows:
+            upper_window = min(selected_windows, key=lambda x: x['z_order'])
+            self.canvas.coords(self.w_border, upper_window['rect'])
+        else:
+            self.canvas.coords(self.w_border, 0, 0, self.winfo_width(), self.winfo_height())
+
+    def _set_editor(self, event):
+        """Установка в качестве редактора области над выбранным окном"""
+        selected_windows = []
+        for window in self.windows:
+            if window['rect'][0] <= event.x <= window['rect'][2] and \
+               window['rect'][1] <= event.y <= window['rect'][3]:
+                selected_windows.append(window)
+        if selected_windows:
+            upper_window = min(selected_windows, key=lambda x: x['z_order'])
+        else:
+            upper_window = ({
+                'hwnd': None,
+                'title': 'Рабочий стол',
+                'rect': (0, 0, self.winfo_width(), self.winfo_height()),
+                'z_order': None
+            })
+
+        e = tk.Event()
+        e.x, e.y = upper_window['rect'][0], upper_window['rect'][1]
+        self._create_editor(e)
+        e.x, e.y = upper_window['rect'][2], upper_window['rect'][3]
+        self._set_viewport(e)
+        self._start_editing()
+
+        self.canvas.delete(self.w_border)
 
     def _create_corner(self, position, x, y, cursor):
         """Создает маркер для изменения размера области редактирования.
@@ -833,6 +998,7 @@ class Application(tk.Tk):
             return
         self.x1, self.y1, self.x2, self.y2 = self.canvas.coords(self.border)
         self.canvas.unbind('<B1-Motion>')
+        self.canvas.unbind('<Motion>')
         self.canvas.unbind('<ButtonPress-1>')
         self.canvas.unbind('<ButtonRelease-1>')
         self.canvas.unbind('<Button-3>')
