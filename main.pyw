@@ -1737,7 +1737,10 @@ class Application(tk.Tk):
             self.coords[2] += step
 
         self.canvas.moveto(self.text, x1, y1)
-        self.canvas.itemconfig(self.text, width=self.winfo_width() - x1)
+        if self.lock_viewport:
+            self.canvas.itemconfigure(self.text, width=self.canvas.bbox(self.viewport)[2] - x1 - 3)
+        else:
+            self.canvas.itemconfigure(self.text, width=self.winfo_width() - x1 - 3)
         self.coords[0] = x1
         self.coords[1] = y1
 
