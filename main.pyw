@@ -185,17 +185,14 @@ class Application(tk.Tk):
         """Получение списка всех открытых окон в порядке от самого верхнего к нижнему"""
         windows = []
 
-        # Получаем самое верхнее окно
         hwnd = win32gui.GetTopWindow(0)
 
         while hwnd:
-            # Пропускаем собственное окно
             self_hwnd = int(self.frame(), 16)
             if hwnd == self_hwnd:
                 hwnd = win32gui.GetWindow(hwnd, win32con.GW_HWNDNEXT)
                 continue
 
-            # Проверяем видимость и наличие заголовка
             if not win32gui.IsWindowVisible(hwnd):
                 hwnd = win32gui.GetWindow(hwnd, win32con.GW_HWNDNEXT)
                 continue
@@ -205,12 +202,10 @@ class Application(tk.Tk):
                 hwnd = win32gui.GetWindow(hwnd, win32con.GW_HWNDNEXT)
                 continue
 
-            # Пропускаем свернутые окна
             if win32gui.IsIconic(hwnd):
                 hwnd = win32gui.GetWindow(hwnd, win32con.GW_HWNDNEXT)
                 continue
 
-            # Фильтрация по классу окна
             class_name = win32gui.GetClassName(hwnd)
             excluded_classes = [
                 'Progman', 'Shell_TrayWnd', 'WorkerW',
@@ -222,7 +217,6 @@ class Application(tk.Tk):
                 hwnd = win32gui.GetWindow(hwnd, win32con.GW_HWNDNEXT)
                 continue
 
-            # Проверка стилей окна
             style = win32gui.GetWindowLong(hwnd, win32con.GWL_STYLE)
             ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
 
@@ -239,14 +233,11 @@ class Application(tk.Tk):
                 hwnd = win32gui.GetWindow(hwnd, win32con.GW_HWNDNEXT)
                 continue
 
-            # Получаем координаты окна (с учетом DPI)
             try:
-                # Получаем DPI контекста для корректного масштабирования
                 user32 = ctypes.windll.user32
                 dpi = user32.GetDpiForWindow(hwnd)
                 scale = dpi / 96.0
 
-                # Получаем физические координаты
                 rect = ctypes.wintypes.RECT()
                 hr = ctypes.windll.dwmapi.DwmGetWindowAttribute(hwnd, 9, ctypes.byref(rect), ctypes.sizeof(rect))
                 if hr == 0:
@@ -254,7 +245,6 @@ class Application(tk.Tk):
                 else:
                     left, top, right, bottom = win32gui.GetWindowRect(hwnd)
 
-                # Конвертируем в логические пиксели
                 left = int(left / scale)
                 top = int(top / scale)
                 right = int(right / scale)
@@ -262,7 +252,6 @@ class Application(tk.Tk):
 
                 rect = (left, top, right, bottom)
             except OSError:
-                # Если возникла ошибка, возвращаем обычные координаты
                 rect = win32gui.GetWindowRect(hwnd)
 
             windows.append({
@@ -272,7 +261,6 @@ class Application(tk.Tk):
                 'z_order': len(windows) + 1
             })
 
-            # Переходим к следующему окну в z-порядке
             hwnd = win32gui.GetWindow(hwnd, win32con.GW_HWNDNEXT)
 
         return windows
@@ -1108,8 +1096,8 @@ class Application(tk.Tk):
         """Активирует инструмент 'Стрелка' для создания указателей."""
         self.canvas.tag_bind('editor', '<ButtonPress-1>', lambda e: self._new_item(e))
         self.canvas.tag_bind('editor', '<B1-Motion>', lambda e: self._arrow_move(e))
+        self.canvas.tag_bind('editor', '<Shift-B1-Motion>', lambda e: self._arrow_angle_move(pi / 4, e))
         self.canvas.tag_bind('editor', '<ButtonRelease-1>', lambda e: self.canvas.unbind('<MouseWheel>'))
-        self.canvas.tag_unbind('editor', '<Shift-B1-Motion>')
         self._set_selection(self.arrow_button)
 
     def _arrow_move(self, event):
@@ -1129,6 +1117,30 @@ class Application(tk.Tk):
             self.canvas.bind('<MouseWheel>', lambda e: self._arrow_change(e))
         else:
             self.coords = self.coords[:2] + self._check_viewport_borders(event.x, event.y)
+            self.canvas.coords(self.arrow, self.coords)
+
+    def _arrow_angle_move(self, angle, event):
+        """Рисует стрелку под фиксированными углами (с зажатым Shift).
+
+        Args:
+            angle (float): Шаг угла в радианах
+            event (tk.Event): Событие перемещения мыши
+        """
+        if len(self.coords) == 2:
+            self.coords += [event.x, event.y]
+            self.arrow = self.canvas.create_line(self.coords, width=5, tags=['editor', 'item'],
+                                                 arrowshape=(17, 25, 7), capstyle='round',
+                                                 fill=self.color_panel['background'],
+                                                 arrow=tk.LAST)
+            self.canvas.tag_bind(self.arrow, '<ButtonPress-3>', partial(self.canvas.delete, self.arrow))
+        else:
+            x1, y1 = self.coords[:2]
+            x2, y2 = event.x, event.y
+            alpha = (atan2(x2 - x1, y2 - y1) + angle / 2) // angle * angle
+            length = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+            x2 = int(x1 + length * sin(alpha))
+            y2 = int(y1 + length * cos(alpha))
+            self.coords = [x1, y1, *self._check_viewport_borders(x2, y2)]
             self.canvas.coords(self.arrow, self.coords)
 
     def _arrow_change(self, event):
@@ -2024,6 +2036,9 @@ class Application(tk.Tk):
     def _recognize(self):
         """Распознает текст и QR-коды в выделенной области с помощью Tesseract OCR и pyzbar."""
         data = []
+        self.screenshot_area = self.screenshot_area.convert('L')
+        self.screenshot_area = ImageEnhance.Contrast(self.screenshot_area).enhance(2.0)
+        self.screenshot_area = self.screenshot_area.filter(ImageFilter.SHARPEN)
         qr_codes = decode(self.screenshot_area)
         if qr_codes:
             for qr_code in qr_codes:
