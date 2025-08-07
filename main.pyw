@@ -2176,10 +2176,20 @@ class Notepad(tk.Tk):
         Args:
             event (tk.Event): Событие клавиатуры
         """
-        if event.keycode == 70:  # Ctrl+F
+        if event.keycode == 0x46:  # Ctrl+F
             self._find_text()
-        elif event.keycode == 74:  # Ctrl+J
+        elif event.keycode == 0x4A:  # Ctrl+J
             self._remove_line_breaks()
+        elif event.keycode == 0x41:  # Ctrl+A
+            self.text.event_generate('<<SelectAll>>')
+        elif event.keycode == 0x43:  # Ctrl+C
+            self.text.event_generate('<<Copy>>')
+        elif event.keycode == 0x58:  # Ctrl+X
+            self.text.event_generate('<<Cut>>')
+        elif event.keycode == 0x56:  # Ctrl+V
+            self.text.event_generate('<<Paste>>')
+        elif event.keycode == 0x5A:  # Ctrl+Z
+            self.text.event_generate('<<Undo>>')
 
     def _remove_line_breaks(self):
         """Удаляет переносы строк в выделенном тексте (Ctrl+J)."""
