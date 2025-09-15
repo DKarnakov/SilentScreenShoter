@@ -1484,7 +1484,7 @@ class Application(tk.Tk):
         Args:
             event (tk.Event): Событие колеса мыши
         """
-        dashes = ['', '255', '1', '255 255 255', '1 1 1']
+        dashes = ['', '255', '1', '1 1 1 1', '255 255 255']
         dash = dashes.index(self.canvas.itemcget(self.line, 'dash'))
         dash += 1 if event.delta > 0 else -1
         self.canvas.itemconfigure(self.line, dash=dashes[dash % len(dashes)])
