@@ -39,10 +39,16 @@ class Application(tk.Tk):
         Args:
             widget (ttk.Widget): Виджет, для которого создается подсказка
             hint (list): Список текстовых подсказок для элементов виджета
+            hint (str): Одимн параметр устанавливается для всего виджета
         """
         def __init__(self, widget, hint):
             self.widget = widget
             self.hint = hint
+            match self.hint:
+                case list():
+                    self.super_master = self.widget.master
+                case str():
+                    self.super_master = self.widget.master.master
             self.widget.bind('<Enter>', lambda e: self._schedule())
             self.widget.bind('<Leave>', lambda e: self.hide())
             self._id = None
@@ -57,16 +63,25 @@ class Application(tk.Tk):
             self._id = None
 
         def show(self):
-            for w, text in zip(self.widget.winfo_children(), self.hint):
-                if isinstance(w, ttk.Button):
-                    x = w.winfo_rootx() + w.winfo_width() // 2
-                    y = w.winfo_rooty() + w.winfo_height() - 0
-                    tk.Label(master=self.widget.master, text=text,
-                             background='lightyellow', relief='solid', borderwidth=1).place(x=x, y=y, anchor='n')
+            match self.hint:
+                case list():
+                    for w, text in zip(self.widget.winfo_children(), self.hint):
+                        if isinstance(w, ttk.Button):
+                            x = w.winfo_rootx() + w.winfo_width() // 2
+                            y = w.winfo_rooty() + w.winfo_height() - 0
+                            tk.Label(master=self.super_master, text=text,
+                                     background='lightyellow', relief='solid',
+                                     borderwidth=1).place(x=x, y=y, anchor='n')
+                case str():
+                    x = self.widget.winfo_rootx() + self.widget.winfo_width() // 2
+                    y = self.widget.winfo_rooty() + self.widget.winfo_height() - 0
+                    tk.Label(master=self.super_master, text=self.hint,
+                             background='lightyellow', relief='solid',
+                             borderwidth=1).place(x=x, y=y, anchor='n')
 
         def hide(self):
             self._unschedule()
-            for w in self.widget.master.winfo_children():
+            for w in self.super_master.winfo_children():
                 if isinstance(w, tk.Label):
                     w.destroy()
 
@@ -148,6 +163,16 @@ class Application(tk.Tk):
         done_txt = tk.StringVar(value='Ok')
         self.done_button = ttk.Button(self.panel, textvariable=done_txt, command=lambda: self._done())
         self.done_button.bind('<Button-3>', lambda e: [self.panel_hint.hide(), self.destroy()])
+        
+        self.Hint(self.arrow_button, 'F1')
+        self.Hint(self.pen_button, 'F2')
+        self.Hint(self.line_button, 'F3')
+        self.Hint(self.rect_button, 'F4')
+        self.Hint(self.text_button, 'F5')
+        self.Hint(self.num_button, 'F6')
+        self.Hint(self.blur_button, 'F7')
+        self.Hint(self.recognize_button, 'Ctrl+R')
+        self.Hint(self.done_button, 'Ctrl+C')
 
         self.bind('<F1>', lambda e: self._set_arrow())
         self.bind('<F2>', lambda e: self._set_pen())
