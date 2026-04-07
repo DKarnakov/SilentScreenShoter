@@ -148,6 +148,7 @@ class Application(tk.Tk):
         self.ruler_scale = 1.0
         self.callback_button = None
         self.lock_viewport = False
+        self.precision_mode = False
 
         self.panel = ttk.Frame(self.canvas)
         self.panel_hint = self.Hint(self.panel, ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', '', 'Ctrl+R', 'Ctrl+C'])
@@ -413,6 +414,7 @@ class Application(tk.Tk):
             self._done()
         elif event.state == 12 and event.keycode == 83:  # Ctrl+S
             self.canvas.delete('service')
+            self.panel.place_forget()
             self.canvas.update()
             image = ImageGrab.grab(bbox=self.canvas.bbox(self.viewport))
             self.destroy()
@@ -443,8 +445,10 @@ class Application(tk.Tk):
             try:
                 hdc.StartDoc(f'Снимок экрана {time.strftime('%d-%m-%Y %H%M%S')}')
                 hdc.StartPage()
-
+                
                 self.canvas.itemconfigure('service', state='hidden')
+                panel_info = self.panel.place_info()
+                self.panel.place_forget()
                 self.canvas.update()
                 bbox = self.canvas.bbox(self.viewport)
                 image = ImageGrab.grab(bbox=bbox)
@@ -467,6 +471,8 @@ class Application(tk.Tk):
 
                 hdc.EndPage()
                 hdc.EndDoc()
+                
+                self.panel.place(panel_info)
                 self.canvas.itemconfigure('service', state='normal')
                 self.canvas.itemconfigure('precision', state='hidden')
                 if self.lock_viewport:
@@ -555,8 +561,12 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<B2-Motion>', lambda e: self._ruler_move(e))
         self.canvas.tag_bind('editor', '<ButtonRelease-2>', lambda e: self._ruler_stop())
 
-    def _precision(self):
+    def _precision(self, event=None):
         """Активирует режим прецизионных измерений (Alt). Показывает размеры области и цвет пикселя."""
+        if not self.precision_mode:
+            self.precision_mode = True
+            self.canvas.bind('<Motion>', self._precision)
+            
         x1, y1, x2, y2 = self.canvas.bbox(self.viewport)
         self.canvas.itemconfig('precision', state='normal')
         size = f'{x2 - x1}×{y2 - y1}'
@@ -606,10 +616,12 @@ class Application(tk.Tk):
 
         self.bind('<MouseWheel>', lambda e: self._change_colorspace(e))
 
-    def _stop_precision(self):
+    def _stop_precision(self, event=None):
         """Завершение режима прецизионных измерений (Alt)"""
+        self.precision_mode = False
         self.canvas.itemconfig('precision', state='hidden')
         self.unbind('<MouseWheel>')
+        self.canvas.unbind('<Motion>')
 
     def _change_colorspace(self, event):
         """Изменяет цветовое пространство определения цвета пикселя.
@@ -621,6 +633,7 @@ class Application(tk.Tk):
         colorspace = spaces.index(self.colorspace)
         colorspace += 1 if event.delta > 0 else -1
         self.colorspace = spaces[colorspace % 6]
+        self._precision()
 
     @staticmethod
     def _get_color_by_space(hex_color, space):
@@ -1847,6 +1860,7 @@ class Application(tk.Tk):
 
             if self.y2 < self.coords[1] + line_height * len(lines) + 3:
                 self.txt = self.txt[:-1]
+                self.bell()
 
         self.canvas.itemconfig(self.text, text=self.txt)
         self._redraw_text()
@@ -2090,6 +2104,7 @@ class Application(tk.Tk):
     def _done(self):
         """Завершает редактирование: сохраняет в буфер обмена или экспортирует в файл."""
         self.canvas.delete('service')
+        self.panel.place_forget()
         self.canvas.update()
         image = ImageGrab.grab(bbox=self.canvas.bbox(self.viewport))
         copy_to_clipboard = self.done_button['text'] == 'Ok'
