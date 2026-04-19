@@ -386,6 +386,14 @@ class Application(tk.Tk):
         self.callback_button = None
         self.lock_viewport = False
         self.precision_mode = False
+        self.marker_mode = False
+        self.marker_size = 18
+        self.marker_list = ['✅', '❎', '✔️', '❌']
+        self.current_marker = 0
+        self.marker_x, self.marker_y = 0, 0
+        self.min_size, self.max_size = 10, 60
+        self.marker_visible = False
+        self.marker_cursor = None
 
         self.panel = ttk.Frame(self.canvas)
         self.panel_hint = self.Hint(self.panel, ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', '', 'Ctrl+R', 'Ctrl+C'])
@@ -671,6 +679,9 @@ class Application(tk.Tk):
         # recognize
         elif event.state == 12 and event.keycode == 82:  # Ctrl+R
             self._recognize()
+        # marker
+        elif event.state == 12 and event.keycode == 77:  # Ctrl+M
+            self._set_marker_mode()
         # print
         elif event.state == 12 and event.keycode == 80:  # Ctrl+P
             self.canvas.itemconfigure('service', state='hidden')
@@ -1263,10 +1274,25 @@ class Application(tk.Tk):
         xv1, yv1, xv2, yv2 = self._offset_bbox(self.canvas.bbox(self.viewport), 5)
         xp1, yp1 = self.panel.winfo_x(), self.panel.winfo_y()
         xp2, yp2 = xp1 + self.panel.winfo_width(), yp1 + self.panel.winfo_height()
-        if (xv1 <= x <= xv2 and yv1 <= y <= yv2) or (xp1 <= x <= xp2 and yp1 <= y <= yp2):
-            self.config(cursor='')
+        
+        if self.marker_mode:
+            if (xp1 <= x <= xp2 and yp1 <= y <= yp2):
+                self.marker_visible = False
+                self.config(cursor='')
+            elif (xv1 <= x <= xv2 and yv1 <= y <= yv2):
+                self.marker_visible = True
+                self.config(cursor='none')
+                self.marker_x = x
+                self.marker_y = y
+            else:
+                self.marker_visible = False
+                self.config(cursor='fleur')
+            self._draw_marker()
         else:
-            self.config(cursor='fleur')
+            if (xv1 <= x <= xv2 and yv1 <= y <= yv2) or (xp1 <= x <= xp2 and yp1 <= y <= yp2):
+                self.config(cursor='')
+            else:
+                self.config(cursor='fleur')
 
     def _viewport_start_move(self):
         """Обработчик начала передвижения окна редактора"""
@@ -1685,6 +1711,7 @@ class Application(tk.Tk):
             self._draw_ruler_size(int(length * self.ruler_scale), 'grey50', 'white')
             return
         else:
+            self.bell()
             return
         self._draw_ruler_size(self.ruler_txt, 'white', 'blue')
 
@@ -2307,6 +2334,103 @@ class Application(tk.Tk):
         self.panel_hint.hide()
         self.destroy()
         Notepad(data, bbox).mainloop()
+        
+    def _set_marker_mode(self):
+        """Режим вставки меток ✓/✗"""
+        self.marker_mode = True
+        self._cursor()
+        
+        self.bind('<Escape>', lambda e: self._stop_marker_mode()) 
+        self.canvas.bind('<Button-1>',  lambda e: self._place_marker(e))
+        self.canvas.bind('<MouseWheel>',  lambda e: self._switch_marker(e))
+        self.canvas.bind('<Control-MouseWheel>',  lambda e: self._resize_marker(e))
+        
+        for button in self.panel.winfo_children():
+            if 'pressed' in ttk.Button.state(button):
+                self.callback_button = button
+                ttk.Button.state(button, ['!pressed'])
+        
+    def _draw_marker(self):
+        """Рисование кастомного курсора"""
+        if self.marker_cursor:
+            self.canvas.delete(self.marker_cursor)
+            
+        if not self.marker_visible:
+            return
+
+        self.marker_cursor = self.canvas.create_text(
+            self.marker_x, self.marker_y,
+            text=self.marker_list[self.current_marker],
+            font=('Segoe UI Emoji', self.marker_size),
+            fill='#272727',
+            anchor='center'
+        )
+
+    def _place_marker(self, event):
+        """Устанавливает метку на скриншот"""
+        if not self.marker_visible:
+            return
+            
+        marker_w = font.Font(font=('Segoe UI Emoji', self.marker_size)).measure(self.marker_list[self.current_marker])
+        marker_h = font.Font(font=('Segoe UI Emoji', self.marker_size)).metrics('linespace')
+        x = max(self.canvas.bbox(self.viewport)[0] + marker_w / 2, min(event.x, self.canvas.bbox(self.viewport)[2] - marker_w / 2))
+        y = max(self.canvas.bbox(self.viewport)[1] + marker_h / 2, min(event.y, self.canvas.bbox(self.viewport)[3] - marker_h / 2))
+        
+        if self.marker_list[self.current_marker] in ['✅', '✔️']:
+            color = '#2E8B57'
+        elif self.marker_list[self.current_marker] in ['❎', '❌']:
+            color = '#DC143C'   
+        
+        self.marker = self.canvas.create_text(
+                            x, y, 
+                            text=self.marker_list[self.current_marker], 
+                            fill=color, 
+                            font=('Segoe UI Emoji', self.marker_size),
+                            tags=['editor', 'item'],
+                            anchor='center'
+        )
+        
+        self.canvas.tag_bind(self.marker, '<ButtonPress-3>', partial(self.canvas.delete, self.marker))
+
+    def _switch_marker(self, event):
+        """Переключает вид метки"""
+        if not self.marker_visible:
+            return
+            
+        if event.delta > 0:
+            self.current_marker = (self.current_marker + 1) % len(self.marker_list)
+        else:
+            self.current_marker = (self.current_marker - 1) % len(self.marker_list)
+        
+        self._draw_marker()
+
+    def _resize_marker(self, event):
+        """Изменяет размер метки вращением колеса мыши"""
+        if not self.marker_visible:
+            return
+            
+        if event.delta > 0:
+            self.marker_size = min(self.marker_size + 2, self.max_size)
+        else:
+            self.marker_size = max(self.marker_size - 2, self.min_size)
+        self._draw_marker()
+        
+    def _stop_marker_mode(self):
+        self.marker_mode = False
+        self._cursor()
+        
+        if self.marker_cursor:
+            self.canvas.delete(self.marker_cursor)
+            self.marker_cursor = None
+        
+        self.bind('<Escape>', lambda e: self.destroy())
+        self.canvas.unbind('<Button-1>')
+        self.canvas.unbind('<MouseWheel>')
+        self.canvas.unbind('<Control-MouseWheel>')
+        
+        if self.callback_button:
+            self.callback_button.invoke()
+            self.callback_button = None
 
     def _done(self):
         """Завершает редактирование: сохраняет в буфер обмена или экспортирует в файл."""
