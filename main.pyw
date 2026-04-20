@@ -2,23 +2,25 @@ import argparse
 import codecs
 import ctypes
 import os
-import pytesseract
 import re
 import time
 import tkinter as tk
 import webbrowser
-import win32clipboard
-import win32print
-import win32ui
-import win32gui
-import win32con
-from colorsys import rgb_to_hsv, rgb_to_hls
+from colorsys import rgb_to_hls, rgb_to_hsv
 from functools import partial
 from io import BytesIO
-from math import sqrt, atan2, pi, sin, cos, dist
-from tkinter import ttk, filedialog, font
+from math import atan2, cos, dist, pi, sin, sqrt
+from tkinter import filedialog, font, ttk
 from tkinter.scrolledtext import ScrolledText as sText
-from PIL import ImageGrab, ImageTk, ImageEnhance, ImageFilter, Image, ImageDraw, ImageWin
+
+import pytesseract
+import win32clipboard
+import win32con
+import win32gui
+import win32print
+import win32ui
+from PIL import (Image, ImageDraw, ImageEnhance, ImageFilter, ImageGrab,
+                 ImageTk, ImageWin)
 from pynput import mouse
 from pyzbar.pyzbar import decode
 from shapely.geometry import LineString, Polygon
@@ -87,7 +89,7 @@ class Application(tk.Tk):
 
     class MakeDraggable:
         """Класс для реализации перетаскивания элементов интерфейса.
-
+        
         Args:
             widget (ttk.Widget): Перетаскиваемый виджет
             on_start (function): Коллбэк при начале перетаскивания
@@ -108,7 +110,7 @@ class Application(tk.Tk):
             x = self.widget.winfo_x() - self.drag_start_x + event.x
             y = self.widget.winfo_y() - self.drag_start_y + event.y
             self.widget.place(x=x, y=y)
-            
+
     class PrintPreview(tk.Toplevel):
         """Класс для вывода окна предпросмотра печати"""
         def __init__(self, parent, image):
@@ -116,30 +118,30 @@ class Application(tk.Tk):
             self.title('SilentScreenShoter — Печать')
             self.resizable(width=False, height=False)
             self.attributes('-topmost', True)
-            
+
             self.bind('<Escape>', lambda e: self.destroy())
-            
+
             self.image = image
             self.printer_name = tk.StringVar(value=win32print.GetDefaultPrinter())
             self.orientation = tk.StringVar(value='Книжная')
-            self.padding = 40 
-            
+            self.padding = 40
+
             self.printer_settings = {}
-            
+
             controls = ttk.Frame(self)
             controls.pack(side='top', fill='x', padx=5, pady=5)
-            
+
             ttk.Label(controls, text='Принтер:').pack(side='left')
             printers = [p[2] for p in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL)]
             self.printer_combo = ttk.Combobox(controls, textvariable=self.printer_name, values=printers, state='readonly')
             self.printer_combo.pack(side='left', padx=5)
-            self.printer_combo.bind('<<ComboboxSelected>>', self._on_changed)
+            self.printer_combo.bind('<<ComboboxSelected>>', self._on_change)
             
             self.status_bar = ttk.Label(self, text='Размер: 0 x 0 мм', relief='sunken', anchor='w')
             self.status_bar.pack(side='bottom', fill='x')
             
             ttk.Label(controls, text='Ориентация:').pack(side='left', padx=5)
-            ttk.OptionMenu(controls, self.orientation, 'Книжная', 'Книжная', 'Альбомная', command=self._on_changed).pack(side='left')
+            ttk.OptionMenu(controls, self.orientation, 'Книжная', 'Книжная', 'Альбомная', command=self._on_change).pack(side='left')
             ttk.Button(controls, text='Печать', command=self._print_image).pack(side='right', padx=5)
 
             self.canvas = tk.Canvas(self, bg='gray')
@@ -165,7 +167,7 @@ class Application(tk.Tk):
             self._update_printer_settings()
             self._redraw_sheet()
             
-        def _on_changed(self, event=None):
+        def _on_change(self, event=None):
             self._update_printer_settings()
             self._scale_image()
             
@@ -211,7 +213,7 @@ class Application(tk.Tk):
             if self.orientation.get() == 'Книжная':
                 return self.base_w, self.base_h
             return self.base_h, self.base_w
-            
+
         def _get_image_size(self):
             """
             Рассчитывает физический размер скриншота на листе в миллиметрах 
@@ -238,7 +240,7 @@ class Application(tk.Tk):
             canvas_width = sheet_w + (self.padding * 2)
             canvas_height = sheet_h + (self.padding * 2)
             self.canvas.config(width=canvas_width, height=canvas_height)
-            self.geometry(f"{canvas_width}x{canvas_height + 45 + 20}")
+            self.geometry(f'{canvas_width}x{canvas_height + 45 + 20}')
 
             self.canvas.create_rectangle(
                 self.padding, self.padding, 
@@ -2353,32 +2355,6 @@ class Application(tk.Tk):
         self.color_panel['background'] = self.palette[self.color % 9]
         if self.text_edit:
             self.canvas.itemconfig(self.text, fill=self.palette[self.color % 9])
-
-    def _recognize(self):
-        """Распознает текст и QR-коды в выделенной области с помощью Tesseract OCR и pyzbar."""
-        data = []
-        self.screenshot_area = self.screenshot_area.convert('L')
-        self.screenshot_area = ImageEnhance.Contrast(self.screenshot_area).enhance(2.0)
-        self.screenshot_area = self.screenshot_area.filter(ImageFilter.SHARPEN)
-        qr_codes = decode(self.screenshot_area)
-        if qr_codes:
-            for qr_code in qr_codes:
-                draw = ImageDraw.Draw(self.screenshot_area)
-                x1 = qr_code.rect.left
-                y1 = qr_code.rect.top
-                x2 = x1 + qr_code.rect.width
-                y2 = y1 + qr_code.rect.height
-                draw.rectangle((x1, y1, x2, y2), fill='black', outline='black', width=5)
-                data.append({'tab': qr_code.type, 'data': codecs.decode(qr_code.data)})
-
-        txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6').strip()
-        if txt != '' or data == []:
-            data.insert(0, {'tab': 'Текст', 'data': txt})
-
-        bbox = self.canvas.bbox(self.viewport)
-        self.panel_hint.hide()
-        self.destroy()
-        Notepad(data, bbox).mainloop()
         
     def _set_marker_mode(self):
         """Режим вставки меток ✓/✗"""
@@ -2389,6 +2365,7 @@ class Application(tk.Tk):
         self.canvas.bind('<Button-1>',  lambda e: self._place_marker(e))
         self.canvas.bind('<MouseWheel>',  lambda e: self._switch_marker(e))
         self.canvas.bind('<Control-MouseWheel>',  lambda e: self._resize_marker(e))
+        self.canvas.bind('<Button-3>',  lambda e: self._stop_marker_mode())
         
         for button in self.panel.winfo_children():
             if 'pressed' in ttk.Button.state(button):
@@ -2472,10 +2449,37 @@ class Application(tk.Tk):
         self.canvas.unbind('<Button-1>')
         self.canvas.unbind('<MouseWheel>')
         self.canvas.unbind('<Control-MouseWheel>')
+        self.canvas.unbind('<Button-3>')
         
         if self.callback_button:
             self.callback_button.invoke()
             self.callback_button = None
+
+    def _recognize(self):
+        """Распознает текст и QR-коды в выделенной области с помощью Tesseract OCR и pyzbar."""
+        data = []
+        self.screenshot_area = self.screenshot_area.convert('L')
+        self.screenshot_area = ImageEnhance.Contrast(self.screenshot_area).enhance(2.0)
+        self.screenshot_area = self.screenshot_area.filter(ImageFilter.SHARPEN)
+        qr_codes = decode(self.screenshot_area)
+        if qr_codes:
+            for qr_code in qr_codes:
+                draw = ImageDraw.Draw(self.screenshot_area)
+                x1 = qr_code.rect.left
+                y1 = qr_code.rect.top
+                x2 = x1 + qr_code.rect.width
+                y2 = y1 + qr_code.rect.height
+                draw.rectangle((x1, y1, x2, y2), fill='black', outline='black', width=5)
+                data.append({'tab': qr_code.type, 'data': codecs.decode(qr_code.data)})
+
+        txt = pytesseract.image_to_string(self.screenshot_area, lang='rus+eng', config=r'--oem 3 --psm 6').strip()
+        if txt != '' or data == []:
+            data.insert(0, {'tab': 'Текст', 'data': txt})
+
+        bbox = self.canvas.bbox(self.viewport)
+        self.panel_hint.hide()
+        self.destroy()
+        Notepad(data, bbox).mainloop()
 
     def _done(self):
         """Завершает редактирование: сохраняет в буфер обмена или экспортирует в файл."""
