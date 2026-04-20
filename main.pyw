@@ -124,13 +124,7 @@ class Application(tk.Tk):
             self.orientation = tk.StringVar(value='Книжная')
             self.padding = 40 
             
-            self.base_w, self.base_h = 450, 635
-            
-            screen_width = self.winfo_screenwidth()
-            screen_height = self.winfo_screenheight()
-            center_x = int((screen_width / 2) - ((450+40*2) / 2))
-            center_y = int((screen_height / 2) - ((635+40*2+45) / 2))
-            self.geometry(f'{450+40*2}x{635+40*2+45}+{center_x}+{center_y}')
+            self.printer_settings = {}
             
             controls = ttk.Frame(self)
             controls.pack(side='top', fill='x', padx=5, pady=5)
@@ -139,65 +133,112 @@ class Application(tk.Tk):
             printers = [p[2] for p in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL)]
             self.printer_combo = ttk.Combobox(controls, textvariable=self.printer_name, values=printers, state='readonly')
             self.printer_combo.pack(side='left', padx=5)
-            self.printer_combo.bind('<<ComboboxSelected>>', self.redraw_sheet)
+            self.printer_combo.bind('<<ComboboxSelected>>', self._on_changed)
+            
+            self.status_bar = ttk.Label(self, text='Размер: 0 x 0 мм', relief='sunken', anchor='w')
+            self.status_bar.pack(side='bottom', fill='x')
             
             ttk.Label(controls, text='Ориентация:').pack(side='left', padx=5)
-            ttk.OptionMenu(controls, self.orientation, 'Книжная', 'Книжная', 'Альбомная', command=self.redraw_sheet).pack(side='left')
-            ttk.Button(controls, text='Печать', command=self.print_image).pack(side='right', padx=5)
+            ttk.OptionMenu(controls, self.orientation, 'Книжная', 'Книжная', 'Альбомная', command=self._on_changed).pack(side='left')
+            ttk.Button(controls, text='Печать', command=self._print_image).pack(side='right', padx=5)
 
             self.canvas = tk.Canvas(self, bg='gray')
             self.canvas.pack(fill='both', expand=True)
             
+            self.base_w, self.base_h = 450, 635
+            
+            self.update_idletasks()
+            
+            screen_width = self.winfo_screenwidth()
+            screen_height = self.winfo_screenheight()
+            center_x = int((screen_width / 2) - ((self.base_w+40*2) / 2))
+            center_y = int((screen_height / 2) - ((self.base_h+40*2+45+20) / 2))
+            self.geometry(f'{self.base_w+40*2}x{self.base_h+40*2+45+20}+{center_x}+{center_y}')
+            
             self.img_scale = 0.3
             self.img_pos = [0, 0] 
             
-            self.canvas.bind('<Button-1>', self.start_drag)
-            self.canvas.bind('<B1-Motion>', self.drag)
-            self.canvas.bind('<MouseWheel>', self.scale_image)
+            self.canvas.bind('<Button-1>', self._start_drag)
+            self.canvas.bind('<B1-Motion>', self._drag)
+            self.canvas.bind('<MouseWheel>', self._scale_image)
             
-            self.redraw_sheet()
-
-        def get_printer_margins(self):
-            """Возвращает отступы полей принтера в процентах от размера листа."""
+            self._update_printer_settings()
+            self._redraw_sheet()
+            
+        def _on_changed(self, event=None):
+            self._update_printer_settings()
+            self._scale_image()
+            
+        def _update_printer_settings(self):
+            """Считывает и кэширует параметры принтера."""
             try:
-                hdc = win32ui.CreateDC()
-                hdc.CreatePrinterDC(self.printer_name.get())
+                printer_name = self.printer_name.get()
+                hPrinter = win32print.OpenPrinter(printer_name)
+                info = win32print.GetPrinter(hPrinter, 2)
+                pDevMode = info['pDevMode']
+                pDevMode.Orientation = 2 if self.orientation.get() == 'Альбомная' else 1
+                # Получаем DC для получения параметров
+                h_dc = win32gui.CreateDC('WINSPOOL', printer_name, pDevMode)
+                hdc = win32ui.CreateDCFromHandle(h_dc)
                 
-                # PHYSICALWIDTH / HEIGHT
-                pw = hdc.GetDeviceCaps(110)
-                ph = hdc.GetDeviceCaps(111)
-                # PHYSICALOFFSETX / Y (Левое и верхнее поле)
-                ox = hdc.GetDeviceCaps(112)
-                oy = hdc.GetDeviceCaps(113)
-                # HORZRES / VERTRES (Печатная область)
-                res_x = hdc.GetDeviceCaps(8)
-                res_y = hdc.GetDeviceCaps(10)
+                self.printer_settings = {
+                    'phys_width': hdc.GetDeviceCaps(110),
+                    'phys_height': hdc.GetDeviceCaps(111),
+                    'dpi_x': hdc.GetDeviceCaps(88),
+                    'dpi_y': hdc.GetDeviceCaps(90),
+                    'margin_left': hdc.GetDeviceCaps(112) / hdc.GetDeviceCaps(110),
+                    'margin_top': hdc.GetDeviceCaps(113) / hdc.GetDeviceCaps(111),
+                    'margin_right': (hdc.GetDeviceCaps(110) - hdc.GetDeviceCaps(8) - hdc.GetDeviceCaps(112)) / hdc.GetDeviceCaps(110),
+                    'margin_bottom': (hdc.GetDeviceCaps(111) - hdc.GetDeviceCaps(10) - hdc.GetDeviceCaps(113)) / hdc.GetDeviceCaps(111)
+                }
                 
-                hdc.DeleteDC()
+                win32gui.DeleteDC(h_dc)
+                win32print.ClosePrinter(hPrinter)
+            except Exception:
+                # Fallback на случай ошибки
+                self.printer_settings = {
+                    'phys_width': 2480, 'phys_height': 3508, 
+                    'dpi_x': 300, 'dpi_y': 300,
+                    'margin_left': 0.05, 'margin_top': 0.05, 'margin_right': 0.05, 'margin_bottom': 0.05
+                }
+            
+        def _get_printer_margins(self):
+            """Возвращает отступы полей принтера в процентах от размера листа."""
+            s = self.printer_settings
+            return s['margin_left'], s['margin_top'], s['margin_right'], s['margin_bottom']
 
-                m_left = ox / pw
-                m_top = oy / ph
-                m_right = (pw - res_x - ox) / pw
-                m_bottom = (ph - res_y - oy) / ph
-                
-                return m_left, m_top, m_right, m_bottom
-            except:
-                # Если принтер недоступен, возвращаем стандартные 5%
-                return 0.05, 0.05, 0.05, 0.05
-
-        def get_sheet_dims(self):
+        def _get_sheet_dims(self):
             if self.orientation.get() == 'Книжная':
                 return self.base_w, self.base_h
             return self.base_h, self.base_w
+            
+        def _get_image_size(self):
+            """
+            Рассчитывает физический размер скриншота на листе в миллиметрах 
+            с учетом ориентации и текущего масштаба.
+            
+            Возвращает:
+                tuple (width_mm, height_mm)
+            """
+            s = self.printer_settings
+            current_sheet_w, _ = self._get_sheet_dims()
+            preview_to_phys_ratio = s['phys_width'] / current_sheet_w
+            
+            print_w_dots = int(self.image.width * self.img_scale * preview_to_phys_ratio)
+            print_h_dots = int(self.image.height * self.img_scale * preview_to_phys_ratio)
+            
+            width_mm = round((print_w_dots * 25.4) / s['dpi_x'], 1)
+            height_mm = round((print_h_dots * 25.4) / s['dpi_y'], 1)
+            return width_mm, height_mm
 
-        def redraw_sheet(self, *args):
+        def _redraw_sheet(self, *args):
             self.canvas.delete('all')
-            sheet_w, sheet_h = self.get_sheet_dims()
+            sheet_w, sheet_h = self._get_sheet_dims()
             
             canvas_width = sheet_w + (self.padding * 2)
             canvas_height = sheet_h + (self.padding * 2)
             self.canvas.config(width=canvas_width, height=canvas_height)
-            self.geometry(f"{canvas_width}x{canvas_height + 45}")
+            self.geometry(f"{canvas_width}x{canvas_height + 45 + 20}")
 
             self.canvas.create_rectangle(
                 self.padding, self.padding, 
@@ -205,7 +246,7 @@ class Application(tk.Tk):
                 fill='white', outline='black', width=1
             )
             
-            ml, mt, mr, mb = self.get_printer_margins()
+            ml, mt, mr, mb = self._get_printer_margins()
 
             self.limit_x1 = ml * sheet_w
             self.limit_y1 = mt * sheet_h
@@ -224,11 +265,14 @@ class Application(tk.Tk):
             self.canvas.create_line(self.padding + self.limit_x2, self.padding,
                     self.padding + self.limit_x2, self.padding + sheet_h,
                     fill='grey', dash=(4, 4), width=1)
-
+            
+            size_mm = self._get_image_size()
+            self.status_bar.config(text=f' Размер: {size_mm[0]} x {size_mm[1]} мм')
+                
             img_w = max(1, int(self.image.width * self.img_scale))
             img_h = max(1, int(self.image.height * self.img_scale))
             
-            self.constrain_position(img_w, img_h)
+            self._constrain_position(img_w, img_h)
 
             self.tk_image = ImageTk.PhotoImage(self.image.resize((img_w, img_h), Image.Resampling.LANCZOS))
             
@@ -238,7 +282,7 @@ class Application(tk.Tk):
                 anchor='nw', image=self.tk_image
             )
 
-        def constrain_position(self, img_w, img_h):
+        def _constrain_position(self, img_w, img_h):
             """Ограничивает движение границами ПУНКТИРНОЙ линии (полями)."""
             min_x, min_y = self.limit_x1, self.limit_y1
             max_x, max_y = self.limit_x2, self.limit_y2
@@ -250,7 +294,6 @@ class Application(tk.Tk):
                 self.img_pos[0] = min_x
             else:
                 self.img_pos[0] = max(min_x, min_y, min(self.img_pos[0], max_x - img_w))
-                # Уточнение для X:
                 self.img_pos[0] = max(min_x, min(self.img_pos[0], max_x - img_w))
 
             if img_h > available_h:
@@ -258,18 +301,21 @@ class Application(tk.Tk):
             else:
                 self.img_pos[1] = max(min_y, min(self.img_pos[1], max_y - img_h))
 
-        def scale_image(self, event):
-            ml, mt, mr, mb = self.get_printer_margins()
-            sheet_w, sheet_h = self.get_sheet_dims()
+        def _scale_image(self, event=None):
+            ml, mt, mr, mb = self._get_printer_margins()
+            sheet_w, sheet_h = self._get_sheet_dims()
             
             # Допустимая область печати
             printable_w = sheet_w * (1 - ml - mr)
             printable_h = sheet_h * (1 - mt - mb)
 
-            if event.delta > 0:
-                new_scale = self.img_scale * 1.1
+            if event:    
+                if event.delta > 0:
+                    new_scale = self.img_scale * 1.1
+                else:
+                    new_scale = self.img_scale * 0.9
             else:
-                new_scale = self.img_scale * 0.9
+                new_scale = self.img_scale * 1.0
                 
             new_w = self.image.width * new_scale
             new_h = self.image.height * new_scale
@@ -279,19 +325,19 @@ class Application(tk.Tk):
             else:
                 self.img_scale = min(printable_w / self.image.width, printable_h / self.image.height)
 
-            self.redraw_sheet()
+            self._redraw_sheet()
 
-        def start_drag(self, event):
+        def _start_drag(self, event):
             self.last_x, self.last_y = event.x, event.y
 
-        def drag(self, event):
+        def _drag(self, event):
             dx, dy = event.x - self.last_x, event.y - self.last_y
             self.img_pos[0] += dx
             self.img_pos[1] += dy
             self.last_x, self.last_y = event.x, event.y
-            self.redraw_sheet()
+            self._redraw_sheet()
             
-        def print_image(self):
+        def _print_image(self):
             hdc = None
             try:
                 printer_name = self.printer_name.get()
@@ -314,7 +360,7 @@ class Application(tk.Tk):
                     win32print.ClosePrinter(hPrinter)
 
                 phys_width = hdc.GetDeviceCaps(110) # PHYSICALWIDTH
-                current_sheet_w, _ = self.get_sheet_dims()
+                current_sheet_w, _ = self._get_sheet_dims()
                 preview_to_phys_ratio = phys_width / current_sheet_w
                 
                 print_w = int(self.image.width * self.img_scale * preview_to_phys_ratio)
@@ -342,7 +388,6 @@ class Application(tk.Tk):
             except Exception as e:
                 import tkinter.messagebox as mb
                 mb.showerror('Ошибка печати', f'Не удалось распечатать: {str(e)}')
-        
         
     def __init__(self):
         """Инициализирует полноэкранное окно, захватывает снимок экрана и настраивает обработчики событий."""
