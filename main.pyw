@@ -441,6 +441,7 @@ class Application(tk.Tk):
         self.min_size, self.max_size = 10, 60
         self.marker_visible = False
         self.marker_cursor = None
+        self.wp_border = False
 
         self.panel = ttk.Frame(self.canvas)
         self.panel_hint = self.Hint(self.panel, ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', '', 'Ctrl+R', 'Ctrl+C'])
@@ -676,7 +677,7 @@ class Application(tk.Tk):
             x1, y1 (int): Координаты левого верхнего угла
             x2, y2 (int): Координаты правого нижнего угла
         """
-        self.canvas.coords(self.border, (x1, y1, x2, y2))
+        self.canvas.coords(self.border, (x1, y1, x2-1, y2-1))
 
         self._move_corner('nw', x1, y1)
         self._move_corner('n', (x2 + x1) // 2, y1)
@@ -705,6 +706,7 @@ class Application(tk.Tk):
         elif event.state in [12, 13] and event.keycode == 67:  # Ctrl+C || Ctrl+Shift+C
             self._done()
         elif event.state == 12 and event.keycode == 83:  # Ctrl+S
+            if self.wp_border: self.canvas.dtag(self.border, 'service')
             self.canvas.delete('service')
             self.panel.place_forget()
             self.canvas.update()
@@ -732,6 +734,7 @@ class Application(tk.Tk):
         # print
         elif event.state == 12 and event.keycode == 80:  # Ctrl+P
             self.canvas.itemconfigure('service', state='hidden')
+            if self.wp_border: self.canvas.itemconfigure(self.border, state='normal')
             panel_info = self.panel.place_info()
             self.panel.place_forget()
             self.canvas.update()
@@ -745,10 +748,27 @@ class Application(tk.Tk):
             self.canvas.itemconfigure('precision', state='hidden')
             if self.lock_viewport:
                 self.canvas.itemconfigure('corner', state='hidden')
+                if not self.precision_mode:
+                    self.canvas.itemconfig(self.lock_icon, state='normal')
+                    self.canvas.itemconfig(self.viewport_size, state='normal')
+                    self.canvas.itemconfig(self.viewport_size_bg, state='normal')
+                    self._rederaw_size_label()
+        # border
+        elif event.state == 12 and event.keycode == 66:  # Ctrl+B
+            self.wp_border = not self.wp_border
+            if self.wp_border:
+                self.canvas.itemconfig(self.border, width=1, dash='', outline=self.color_panel['background'])
+            else:
+                self.canvas.itemconfig(self.border, width=2, dash=50, outline='lightgrey')
 
     def _viewport_lock(self):
         """Блокировка изменения размеров окна редактора"""
         self.lock_viewport = not self.lock_viewport
+        if not self.precision_mode:
+            self.canvas.itemconfig(self.lock_icon, state='hidden')
+            self.canvas.itemconfig(self.viewport_size, state='hidden')
+            self.canvas.itemconfig(self.viewport_size_bg, state='hidden')
+
         self.canvas.itemconfigure('corner', state='hidden' if self.lock_viewport else 'normal')
         self.canvas.tag_raise('corner')
         if self.text_edit:
@@ -757,6 +777,8 @@ class Application(tk.Tk):
             else:
                 self.canvas.itemconfigure(self.text, width=self.winfo_width() - self.coords[0] - 3)
             self._redraw_text()
+
+        self._rederaw_size_label()
 
     def _create_editor(self, event):
         """Создает область редактирования на холсте.
@@ -787,19 +809,24 @@ class Application(tk.Tk):
 
         self.x1, self.x2, self.y1, self.y2 = x1, x2, y1, y2
 
-        self.viewport_size = self.canvas.create_text(x1 - 5, y1 - 7,
+
+        self.viewport_size_bg = self.canvas.create_rectangle((x1, y1, x1, y1),
+                                                             fill='grey', outline='grey',
+                                                             tags=['service', 'precision'])
+        self.lock_icon = self.canvas.create_text(x1, y1, anchor='sw', text='🔒',
+                                                 font='{Segoe UI Symbol} 10',
+                                                 fill='lightgrey', tags=['service', 'precision'])
+        self.viewport_size = self.canvas.create_text(x1, y1,
                                                      anchor='sw', text='0×0',
                                                      font='Helvetica 10 bold',
                                                      fill='lightgrey',
                                                      tags=['service', 'precision'])
-        self.viewport_size_bg = self.canvas.create_rectangle(self.canvas.bbox(self.viewport_size),
-                                                             fill='grey', outline='grey',
-                                                             tags=['service', 'precision'])
         self.canvas.tag_bind(self.viewport_size, '<Enter>', lambda e: self.canvas.config(cursor='hand2'))
         self.canvas.tag_bind(self.viewport_size, '<Leave>', lambda e: self.canvas.config(cursor=''))
+        self.canvas.tag_bind(self.lock_icon, '<Enter>', lambda e: self.canvas.config(cursor='hand2'))
+        self.canvas.tag_bind(self.lock_icon, '<Leave>', lambda e: self.canvas.config(cursor=''))
         self.canvas.tag_bind(self.viewport_size, '<ButtonPress-1>', lambda e: self._viewport_lock())
-
-        self.canvas.tag_lower(self.viewport_size_bg, self.viewport_size)
+        self.canvas.tag_bind(self.lock_icon, '<ButtonPress-1>', lambda e: self._viewport_lock())
 
         for row in range(7):
             for col in range(7):
@@ -826,25 +853,53 @@ class Application(tk.Tk):
         self.canvas.tag_bind('editor', '<B2-Motion>', lambda e: self._ruler_move(e))
         self.canvas.tag_bind('editor', '<ButtonRelease-2>', lambda e: self._ruler_stop())
 
+    def _rederaw_size_label(self):
+        """Перерисовка метки размера окна"""
+        x1, y1, x2, y2 = (0, 0, 0, 0) if self.canvas.bbox(self.viewport) is None else self.canvas.bbox(self.viewport)
+        icon = '🔒' if self.lock_viewport else ''
+        size = f'{x2 - x1}×{y2 - y1}' if self.precision_mode else ''
+
+        self.canvas.itemconfig(self.lock_icon, text=icon)
+        self.canvas.itemconfig(self.viewport_size, text=size)
+
+        size_bbox = self.canvas.bbox(self.viewport_size)
+        icon_bbox = self.canvas.bbox(self.lock_icon)
+        if size_bbox:
+            height = size_bbox[3] - size_bbox[1]
+        elif icon_bbox:
+            height = icon_bbox[3] - icon_bbox[1]
+        else:
+            height = 0
+
+        self.canvas.moveto(self.lock_icon, x1 - 5, y1 - height - 7)
+
+        offset_x = icon_bbox[2] if self.lock_viewport else x1 - 5
+
+        self.canvas.moveto(self.viewport_size, offset_x, y1 - height - 7)
+
+        bbox = self.canvas.bbox(self.viewport_size)
+        if self.lock_viewport:
+            bbox = (icon_bbox[0], icon_bbox[1], bbox[2], bbox[3])
+            if not self.precision_mode:
+                bbox = self.canvas.bbox(self.lock_icon)
+
+        self.canvas.coords(self.viewport_size_bg, self._offset_bbox(bbox, 2))
+
     def _precision(self, event=None):
         """Активирует режим прецизионных измерений (Alt). Показывает размеры области и цвет пикселя."""
         if not self.precision_mode:
             self.precision_mode = True
             self.canvas.bind('<Motion>', self._precision)
-            
-        x1, y1, x2, y2 = self.canvas.bbox(self.viewport)
         self.canvas.itemconfig('precision', state='normal')
-        size = f'{x2 - x1}×{y2 - y1}'
-        self.canvas.itemconfig(self.viewport_size, text=f'>{size}<' if self.lock_viewport else size)
-        height = self.canvas.bbox(self.viewport_size)[3] - self.canvas.bbox(self.viewport_size)[1]
-        self.canvas.moveto(self.viewport_size, x1 - 5, y1 - height - 7)
-        self.canvas.coords(self.viewport_size_bg, self.canvas.bbox(self.viewport_size))
+
+        self._rederaw_size_label()
 
         xp = self.winfo_pointerx() - self.winfo_rootx()
         yp = self.winfo_pointery() - self.winfo_rooty()
         x = min(max(35, xp), self.winfo_width() - 35)
         y = min(yp, self.winfo_height() - 110)
 
+        x1, y1, x2, y2 = (0, 0, 0, 0) if self.canvas.bbox(self.viewport) is None else self.canvas.bbox(self.viewport)
         if x1 <= xp <= x2 and y1 <= yp <= y2:
             self.canvas.itemconfigure('zoom', state='normal')
             for row in range(7):
@@ -885,6 +940,11 @@ class Application(tk.Tk):
         """Завершение режима прецизионных измерений (Alt)"""
         self.precision_mode = False
         self.canvas.itemconfig('precision', state='hidden')
+        if self.lock_viewport:
+            self.canvas.itemconfig(self.lock_icon, state='normal')
+            self.canvas.itemconfig(self.viewport_size, state='normal')
+            self.canvas.itemconfig(self.viewport_size_bg, state='normal')
+            self._rederaw_size_label()
         self.unbind('<MouseWheel>')
         self.canvas.unbind('<Motion>')
 
@@ -1339,10 +1399,12 @@ class Application(tk.Tk):
             if (xv1 <= x <= xv2 and yv1 <= y <= yv2) or (xp1 <= x <= xp2 and yp1 <= y <= yp2):
                 self.config(cursor='')
             else:
-                self.config(cursor='fleur')
+                self.config(cursor='' if self.lock_viewport else 'fleur')
 
     def _viewport_start_move(self):
         """Обработчик начала передвижения окна редактора"""
+        if self.lock_viewport: return
+
         x, y = self.winfo_pointerxy()
         xv1, yv1, xv2, yv2 = self._offset_bbox(self.canvas.bbox(self.viewport), 5)
         xp1, yp1 = self.panel.winfo_x(), self.panel.winfo_y()
@@ -1782,6 +1844,8 @@ class Application(tk.Tk):
         Returns:
             tuple: Новые координаты
         """
+        if bbox is None: return (0, 0, 0, 0)
+
         x1, y1, x2, y2 = bbox
         return (x1 - offset,
                 y1 - offset,
@@ -2483,6 +2547,7 @@ class Application(tk.Tk):
 
     def _done(self):
         """Завершает редактирование: сохраняет в буфер обмена или экспортирует в файл."""
+        if self.wp_border: self.canvas.dtag(self.border, 'service')
         self.canvas.delete('service')
         self.panel.place_forget()
         self.canvas.update()
