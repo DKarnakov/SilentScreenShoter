@@ -760,6 +760,208 @@ class Application(tk.Tk):
                 self.canvas.itemconfig(self.border, width=1, dash='', outline=self.color_panel['background'])
             else:
                 self.canvas.itemconfig(self.border, width=2, dash=50, outline='lightgrey')
+        # paste
+        elif event.state == 12 and event.keycode == 86:  # Ctrl+V
+            self._paste_from_clipboard()
+
+    def _paste_from_clipboard(self):
+        """Извлекает данные из буфера обмена и направляет на вставку текста или картинки."""
+        
+        text = None
+        try:
+            win32clipboard.OpenClipboard()
+            if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_UNICODETEXT):
+                text = win32clipboard.GetClipboardData(win32clipboard.CF_UNICODETEXT)
+            win32clipboard.CloseClipboard()
+        except Exception:
+            pass
+        
+        if text:
+            self._paste_text(text)
+            return
+        
+        img = ImageGrab.grabclipboard()
+        if isinstance(img, Image.Image):
+            self._paste_image(img)
+
+    def _paste_text(self, text):
+        """Переводит редактор в режим выбора места для вставки текста из буфера обмена."""
+        self.paste_txt_orig = text
+        
+        x = self.winfo_pointerx() - self.winfo_rootx()
+        y = self.winfo_pointery() - self.winfo_rooty()
+        
+        self.paste_text_canvas_id = self.canvas.create_text(
+            x, y, 
+            anchor='w', 
+            text=self.paste_txt_orig, 
+            font=f'Helvetica {self.font_size} bold', 
+            fill=self.color_panel['background'], 
+            tags=['service', 'text_paste_preview']
+        )
+        
+        self.bind('<Motion>', self._paste_text_motion)
+        self.bind('<Button-1>', self._paste_text_drop)
+        self.bind('<Escape>', self._paste_text_cancel)
+
+    def _paste_text_motion(self, event):
+        """Перемещает текст-превью вслед за курсором мыши."""
+        self.canvas.coords(self.paste_text_canvas_id, event.x, event.y)
+
+    def _paste_text_cancel(self, event=None):
+        """Отмена вставки текста по клавише Escape."""
+        self.canvas.delete(self.paste_text_canvas_id)
+        self._unbind_paste_events()
+
+    def _paste_text_drop(self, event):
+        """Фиксирует текст в указанной пользователем точке и проверяет его по границам."""
+        self._unbind_paste_events()
+        self.canvas.delete(self.paste_text_canvas_id)
+        
+        self._set_text()
+        
+        e = tk.Event()
+        e.x, e.y = event.x, event.y
+        self._text_create(e)
+        self._text_start(e)
+        
+        if self.lock_viewport:
+            max_width = self.canvas.bbox(self.viewport)[2] - self.coords[0] - 3
+            max_height = self.canvas.bbox(self.viewport)[3] - self.coords[1] - 3
+        else:
+            max_width = self.winfo_width() - self.coords[0] - 3
+            max_height = self.winfo_height() - self.coords[1] - 3
+
+        if max_width <= 0 or max_height <= 0:
+            self.bell()
+            self._text_stop()
+            return
+
+        self.canvas.itemconfigure(self.text, width=max_width)
+
+        current_font = font.Font(font=f'Helvetica {self.font_size} bold')
+        line_height = current_font.metrics('linespace')
+        
+        valid_text = ''
+        line = ''
+        lines = []
+        truncated = False
+
+        for char in self.paste_txt_orig:
+            line += char
+            
+            if current_font.measure(line) > max_width or char == '\n':
+                lines.append(line[:-1])
+                
+                if line_height * (len(lines) + 1) > max_height:
+                    truncated = True
+                    break
+                    
+                line = char if char != '\n' else ''
+                
+            valid_text += char
+        
+        if not truncated and valid_text:
+            if line_height * (len(lines) + 1) > max_height:
+                valid_text = valid_text[:-len(line)] if len(line) > 0 else valid_text
+                truncated = True
+        
+        if truncated: self.bell()
+        
+        self.txt = valid_text
+        self.canvas.itemconfig(self.text, text=self.txt)
+        
+        if not self.lock_viewport:
+            bounds = self.canvas.bbox(self.text)
+            if bounds:
+                self._check_viewport_borders(bounds[0] - 3, bounds[1] - 3)
+                self._check_viewport_borders(bounds[2] + 3, bounds[3] + 3)
+
+        self._redraw_text()
+
+    def _paste_image(self, img):
+        """Переводит редактор в режим установки картинки из буфера обмена."""
+        self.paste_img_orig = img.convert("RGBA")
+        self.paste_scale = 1.0
+        self.paste_tk_img = ImageTk.PhotoImage(self.paste_img_orig)
+        
+        x = self.winfo_pointerx() - self.winfo_rootx()
+        y = self.winfo_pointery() - self.winfo_rooty()
+        
+        self.paste_canvas_id = self.canvas.create_image(x, y, anchor='center', image=self.paste_tk_img, tags=['service', 'paste_preview'])
+        
+        self.bind('<Motion>', self._paste_image_motion)
+        self.bind('<MouseWheel>', self._paste_image_wheel)
+        self.bind('<Button-1>', self._paste_image_drop)
+        self.bind('<Escape>', self._paste_image_cancel)
+
+    def _paste_image_motion(self, event):
+        """Перемещает картинку вслед за курсором."""
+        self.canvas.coords(self.paste_canvas_id, event.x, event.y)
+
+    def _paste_image_wheel(self, event):
+        """Масштабирует вставляемую картинку колесом мыши."""
+        if event.delta > 0:
+            self.paste_scale *= 1.1
+        else:
+            self.paste_scale *= 0.9
+            
+        new_w = max(1, int(self.paste_img_orig.width * self.paste_scale))
+        new_h = max(1, int(self.paste_img_orig.height * self.paste_scale))
+        
+        resized = self.paste_img_orig.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        self.paste_tk_img = ImageTk.PhotoImage(resized)
+        self.canvas.itemconfig(self.paste_canvas_id, image=self.paste_tk_img)
+
+    def _paste_image_cancel(self, event=None):
+        """Отмена вставки по Escape."""
+        self.canvas.delete(self.paste_canvas_id)
+        self._unbind_paste_events()
+
+    def _unbind_paste_events(self):
+        """Возвращает стандартные обработчики событий после окончания вставки."""
+        self.unbind('<MouseWheel>')
+        self.unbind('<Button-1>')
+        self.bind('<Escape>', lambda e: self.destroy())
+        self.bind('<Motion>', lambda e: self._cursor())
+
+    def _paste_image_drop(self, event):
+        """Фиксирует картинку на холсте с проверкой границ viewport."""
+        self._unbind_paste_events()
+        self.canvas.delete(self.paste_canvas_id)
+        
+        new_w = max(1, int(self.paste_img_orig.width * self.paste_scale))
+        new_h = max(1, int(self.paste_img_orig.height * self.paste_scale))
+        img_to_paste = self.paste_img_orig.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        
+        x1 = event.x - new_w // 2
+        y1 = event.y - new_h // 2
+        x2 = x1 + new_w
+        y2 = y1 + new_h
+        
+        if self.lock_viewport:
+            vx1, vy1, vx2, vy2 = self.canvas.bbox(self.viewport)
+            
+            crop_left = max(0, vx1 - x1)
+            crop_top = max(0, vy1 - y1)
+            crop_right = new_w - max(0, x2 - vx2)
+            crop_bottom = new_h - max(0, y2 - vy2)
+            
+            if crop_left >= new_w or crop_top >= new_h or crop_right <= 0 or crop_bottom <= 0:
+                return 
+                
+            img_to_paste = img_to_paste.crop((crop_left, crop_top, crop_right, crop_bottom))
+            x1 += crop_left
+            y1 += crop_top
+        else:
+            self._check_viewport_borders(x1, y1)
+            self._check_viewport_borders(x2, y2)
+            
+        final_tk_img = ImageTk.PhotoImage(img_to_paste)
+        self.image_stack.append(final_tk_img)
+        
+        pasted_id = self.canvas.create_image(x1, y1, anchor='nw', image=self.image_stack[-1], tags=['editor', 'item'])
+        self.canvas.tag_bind(pasted_id, '<ButtonPress-3>', partial(self.canvas.delete, pasted_id))
 
     def _viewport_lock(self):
         """Блокировка изменения размеров окна редактора"""
@@ -1239,7 +1441,6 @@ class Application(tk.Tk):
                 return [f'RAL {closest_color["RAL"]}',
                         f'RAL {closest_color["RAL"]} ({closest_color["rus"]})',
                         closest_color['rgb']]
-
 
     def _set_color(self, color):
         """Устанавливает активный цвет для инструментов рисования.
