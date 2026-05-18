@@ -137,7 +137,7 @@ class Application(tk.Tk):
             self.printer_combo.pack(side='left', padx=5)
             self.printer_combo.bind('<<ComboboxSelected>>', self._on_change)
             
-            self.status_bar = ttk.Label(self, text='Размер: 0 x 0 мм', relief='sunken', anchor='w')
+            self.status_bar = ttk.Label(self, text='Размер: 0×0 мм', relief='sunken', anchor='w')
             self.status_bar.pack(side='bottom', fill='x')
             
             ttk.Label(controls, text='Ориентация:').pack(side='left', padx=5)
@@ -269,7 +269,7 @@ class Application(tk.Tk):
                     fill='grey', dash=(4, 4), width=1)
             
             size_mm = self._get_image_size()
-            self.status_bar.config(text=f' Размер: {size_mm[0]} x {size_mm[1]} мм')
+            self.status_bar.config(text=f' Размер: {size_mm[0]}×{size_mm[1]} мм')
                 
             img_w = max(1, int(self.image.width * self.img_scale))
             img_h = max(1, int(self.image.height * self.img_scale))
@@ -441,7 +441,7 @@ class Application(tk.Tk):
         self.min_size, self.max_size = 10, 60
         self.marker_visible = False
         self.marker_cursor = None
-        self.wp_border = False
+        self.color_border = False
 
         self.panel = ttk.Frame(self.canvas)
         self.panel_hint = self.Hint(self.panel, ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', '', 'Ctrl+R', 'Ctrl+C'])
@@ -706,7 +706,7 @@ class Application(tk.Tk):
         elif event.state in [12, 13] and event.keycode == 67:  # Ctrl+C || Ctrl+Shift+C
             self._done()
         elif event.state == 12 and event.keycode == 83:  # Ctrl+S
-            if self.wp_border: self.canvas.dtag(self.border, 'service')
+            if self.color_border: self.canvas.dtag(self.border, 'service')
             self.canvas.delete('service')
             self.panel.place_forget()
             self.canvas.update()
@@ -734,7 +734,7 @@ class Application(tk.Tk):
         # print
         elif event.state == 12 and event.keycode == 80:  # Ctrl+P
             self.canvas.itemconfigure('service', state='hidden')
-            if self.wp_border: self.canvas.itemconfigure(self.border, state='normal')
+            if self.color_border: self.canvas.itemconfigure(self.border, state='normal')
             panel_info = self.panel.place_info()
             self.panel.place_forget()
             self.canvas.update()
@@ -755,8 +755,8 @@ class Application(tk.Tk):
                     self._rederaw_size_label()
         # border
         elif event.state == 12 and event.keycode == 66:  # Ctrl+B
-            self.wp_border = not self.wp_border
-            if self.wp_border:
+            self.color_border = not self.color_border
+            if self.color_border:
                 self.canvas.itemconfig(self.border, width=1, dash='', outline=self.color_panel['background'])
             else:
                 self.canvas.itemconfig(self.border, width=2, dash=50, outline='lightgrey')
@@ -2547,7 +2547,7 @@ class Application(tk.Tk):
 
     def _done(self):
         """Завершает редактирование: сохраняет в буфер обмена или экспортирует в файл."""
-        if self.wp_border: self.canvas.dtag(self.border, 'service')
+        if self.color_border: self.canvas.dtag(self.border, 'service')
         self.canvas.delete('service')
         self.panel.place_forget()
         self.canvas.update()
