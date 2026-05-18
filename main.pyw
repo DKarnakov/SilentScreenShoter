@@ -921,7 +921,7 @@ class Application(tk.Tk):
     def _unbind_paste_events(self):
         """Возвращает стандартные обработчики событий после окончания вставки."""
         self.unbind('<MouseWheel>')
-        self.unbind('<Button-1>')
+        self.bind('<ButtonPress-1>', lambda e: self._viewport_start_move())
         self.bind('<Escape>', lambda e: self.destroy())
         self.bind('<Motion>', lambda e: self._cursor())
 
