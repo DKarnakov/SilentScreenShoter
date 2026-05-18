@@ -763,6 +763,9 @@ class Application(tk.Tk):
         # paste
         elif event.state == 12 and event.keycode == 86:  # Ctrl+V
             self._paste_from_clipboard()
+        # insert image from file
+        elif event.state == 13 and event.keycode == 86:  # Ctrl+Shift+V
+            self._insert_image_from_file()
 
     def _paste_from_clipboard(self):
         """Извлекает данные из буфера обмена и направляет на вставку текста или картинки."""
@@ -878,6 +881,30 @@ class Application(tk.Tk):
                 self._check_viewport_borders(bounds[2] + 3, bounds[3] + 3)
 
         self._redraw_text()
+
+    def _insert_image_from_file(self):
+        """Вставка изибражения из файла"""
+
+        filetypes = [
+            ('Изображения', '*.png *.jpg *.jpeg *.bmp *.gif *.webp *.ico'),
+            ('PNG', '*.png'),
+            ('JPEG', '*.jpg *.jpeg'),
+            ('BMP', '*.bmp'),
+            ('Все файлы', '*.*')
+        ]
+        
+        file_path = filedialog.askopenfilename(
+            title='Выберите изображение для вставки',
+            filetypes=filetypes
+        )
+        
+        if not file_path: return
+            
+        try:
+            img = Image.open(file_path)
+            self._paste_image(img)
+        except Exception:
+            self.bell()
 
     def _paste_image(self, img):
         """Переводит редактор в режим установки картинки из буфера обмена."""
